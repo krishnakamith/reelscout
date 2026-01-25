@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReelScout - Import</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        h1 { margin-bottom: 20px; color: #2f6fe6; }
+        
+        /* Input Area */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: #2c2c2c;
+            color: white;
+            outline: none;
+        }
+        button {
+            padding: 12px 20px;
+            border-radius: 6px;
+            border: none;
+            background: #2f6fe6;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #1a54c2; }
+        button:disabled { background: #555; cursor: not-allowed; }
+
+        /* Result Card (Hidden by default) */
+        #result-card {
+            display: none;
+            background: #252525;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 20px;
+            text-align: left;
+            border: 1px solid #333;
+        }
+        video {
+            width: 100%;
+            display: block;
+            background: black;
+        }
+        .info { padding: 15px; }
+        .badge {
+            display: inline-block;
+            background: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        .location {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4caf50; /* Green for success */
+            margin-bottom: 5px;
+        }
+        .caption {
+            font-size: 14px;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        .error {
+            color: #ff5252;
+            margin-top: 10px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>ReelScout</h1>
+    <p style="color:#aaa; margin-bottom:20px;">Paste an Instagram Reel link to extract data.</p>
+
+    <div class="input-group">
+        <input type="text" id="reelLink" placeholder="https://www.instagram.com/reel/..." />
+        <button id="btnSearch" onclick="processReel()">Import</button>
+    </div>
+
+    <div id="errorMsg" class="error"></div>
+
+    <div id="result-card">
+        <video id="vidPlayer" controls playsinline>
+            <source src="" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+
+        <div class="info">
+            <div class="badge" id="authorBadge">@author</div>
+            <div class="location" id="locationText">📍 Unknown Location</div>
+            <p class="caption" id="captionText">No caption...</p>
+            <div style="margin-top:10px; font-size:12px; color:#555;">
+                Video saved locally to: <span id="pathText">...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function processReel() {
+        const link = document.getElementById('reelLink').value.trim();
+        const btn = document.getElementById('btnSearch');
+        const card = document.getElementById('result-card');
+        const errorDiv = document.getElementById('errorMsg');
+        
+        // Reset UI
+        errorDiv.style.display = 'none';
+        card.style.display = 'none';
+
+        if (!link) {
+            showError("Please enter a link first.");
+            return;
+        }
+
+        // 1. Set Loading State
+        btn.innerText = "⏳ Processing...";
+        btn.disabled = true;
+
+        try {
+            // 2. Call Django API
+            const response = await fetch('/api/search/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') // Required for Django Security
+                },
+                body: JSON.stringify({ url: link })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                const data = result.data;
+                
+                // 3. Populate Data
+                document.getElementById('authorBadge').innerText = '@' + (data.author || 'User');
+                document.getElementById('locationText').innerText = '📍 ' + (data.location_name || 'Processing Location...');
+                document.getElementById('captionText').innerText = data.caption_snippet || 'No caption available.';
+                document.getElementById('pathText').innerText = data.video_local_path;
+
+                // 4. Load Video Source
+                const videoEl = document.getElementById('vidPlayer');
+                videoEl.src = data.video_local_path;
+                videoEl.load();
+
+                // Show Card
+                card.style.display = 'block';
+            } else {
+                showError(result.error || "Failed to process reel.");
+            }
+
+        } catch (err) {
+            console.error(err);
+            showError("Server Error: " + err.message);
+        } finally {
+            btn.innerText = "Import";
+            btn.disabled = false;
+        }
+    }
+
+    function showError(msg) {
+        const err = document.getElementById('errorMsg');
+        err.innerText = "❌ " + msg;
+        err.style.display = 'block';
+    }
+
+    // Helper to get Django's CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+</body>
+</html>
