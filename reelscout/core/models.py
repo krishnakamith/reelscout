@@ -7,7 +7,7 @@ class ScrapedReel(models.Model):
     original_url = models.URLField(max_length=500)
     
     # 2. MEDIA ASSETS (Stored locally to save money)
-    video_file = models.FileField(upload_to='reel/', null=True, blank=True)
+    video_file = models.FileField(upload_to='video/', null=True, blank=True)
     thumbnail_url = models.URLField(max_length=1000, null=True, blank=True)
     
     # 3. TEXT & CONTEXT

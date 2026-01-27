@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from apify_client import ApifyClient
 from .models import ScrapedReel
+from .video_engine import VideoEngine
 
 def extract_shortcode(url):
     match = re.search(r'/(?:reel|p)/([^/?#&]+)', url)
@@ -27,7 +28,7 @@ def get_or_process_reel(reel_url):
         "includeDownloadedVideo": False, 
         "includeTranscript": False,
         "includeSharesCount": False,
-        "commentsLimit": 50
+        "commentsLimit": 100
     }
     
     run = client.actor("apify/instagram-reel-scraper").call(run_input=run_input)
@@ -73,7 +74,22 @@ def get_or_process_reel(reel_url):
         }
     )
 
+
     if video_content:
-        reel.video_file.save(f"{short_code}.mp4", video_content, save=True)
+        # 1. Save the Video File
+        file_name = f"{short_code}.mp4"
+        reel.video_file.save(file_name, video_content, save=True)
+        
+        # 2. Initialize the Engine
+        full_video_path = reel.video_file.path 
+        engine = VideoEngine(full_video_path, short_code)
+        
+        # 3. Mine the Data
+        engine.extract_frames(interval=2)
+        audio_path, transcript = engine.extract_and_transcribe_audio()
+        
+        # 4. Save Transcript to DB
+        reel.transcript_text = transcript
+        reel.save()
 
     return reel
