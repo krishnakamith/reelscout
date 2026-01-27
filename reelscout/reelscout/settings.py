@@ -129,4 +129,4 @@ import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-APIFY_TOKEN = os.getenv("APIFY_TOKEN", )
+APIFY_TOKEN = os.getenv("APIFY_TOKEN")

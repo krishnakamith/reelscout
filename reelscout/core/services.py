@@ -23,11 +23,11 @@ def get_or_process_reel(reel_url):
     # 2. SCRAPE (Cheap Mode)
     client = ApifyClient(settings.APIFY_TOKEN)
     run_input = {
-        "reelUrls": [reel_url],
+        "username": [reel_url],
         "includeDownloadedVideo": False, 
         "includeTranscript": False,
         "includeSharesCount": False,
-
+        "commentsLimit": 50
     }
     
     run = client.actor("apify/instagram-reel-scraper").call(run_input=run_input)
