@@ -22,7 +22,7 @@ local_settings.py
 # --------------------
 # Media files (videos, uploads)
 # --------------------
-media/
+reel/
 
 # --------------------
 # OS / Editor junk
