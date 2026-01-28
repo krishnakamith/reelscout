@@ -1,11 +1,13 @@
 import re
 import requests
+import json
 from datetime import datetime
 from django.conf import settings
 from django.core.files.base import ContentFile
 from apify_client import ApifyClient
 from .models import ScrapedReel, ReelFrame
 from .video_engine import VideoEngine
+from .gemini_service import GeminiService
 
 def extract_shortcode(url):
     match = re.search(r'/(?:reel|p)/([^/?#&]+)', url)
@@ -14,51 +16,35 @@ def extract_shortcode(url):
 def get_or_process_reel(reel_url):
     # 1. CHECK CACHE
     short_code = extract_shortcode(reel_url)
-    if not short_code:
-        raise ValueError("Invalid Instagram URL")
+    if not short_code: raise ValueError("Invalid Instagram URL")
 
     existing_reel = ScrapedReel.objects.filter(short_code=short_code).first()
-    if existing_reel:
-        return existing_reel
+    if existing_reel: return existing_reel
 
-    # 2. SCRAPE
+    # 2. SCRAPE (Video + Metadata)
     print(f"🚀 Scraping {short_code}...")
     client = ApifyClient(settings.APIFY_TOKEN)
+    
     run_input = {
         "username": [reel_url],
         "includeDownloadedVideo": False, 
         "includeTranscript": False,
-        "includeSharesCount": False,
-        "commentsLimit": 100
+        "commentsLimit": 0 
     }
     
     run = client.actor("apify/instagram-reel-scraper").call(run_input=run_input)
     if not run: raise Exception("Scraper failed")
 
-    dataset = client.dataset(run["defaultDatasetId"])
-    items = dataset.list_items().items
-    if not items: raise Exception("No data found (Private reel?)")
+    items = client.dataset(run["defaultDatasetId"]).list_items().items
+    if not items: raise Exception("No data found")
     item = items[0]
 
-    # 3. DOWNLOAD VIDEO
-    video_content = None
-    cdn_url = item.get("videoUrl")
-    if cdn_url:
-        try:
-            res = requests.get(cdn_url, timeout=30)
-            if res.status_code == 200:
-                video_content = ContentFile(res.content)
-        except Exception as e:
-            print(f"Download Error: {e}")
-
-    # Fix Date
+    # 3. SAVE METADATA
     formatted_date = None
     if item.get("timestamp"):
-        try:
-            formatted_date = datetime.fromisoformat(item.get("timestamp").replace("Z", "+00:00"))
+        try: formatted_date = datetime.fromisoformat(item.get("timestamp").replace("Z", "+00:00"))
         except: pass
 
-    # 4. SAVE TO DB
     reel, created = ScrapedReel.objects.update_or_create(
         short_code=short_code,
         defaults={
@@ -68,40 +54,53 @@ def get_or_process_reel(reel_url):
             "author_handle": item.get("ownerUsername"),
             "thumbnail_url": item.get("displayUrl"),
             "posted_at": formatted_date,
-            "comments_dump": item.get("latestComments", []),
+            "comments_dump": [],
             "view_count": item.get("videoViewCount", 0),
             "like_count": item.get("likesCount", 0),
             "instagram_location_name": item.get("location", {}).get("name") if item.get("location") else None
         }
     )
 
-    if video_content:
-        # A. Save Video File
-        file_name = f"{short_code}.mp4"
-        reel.video_file.save(file_name, video_content, save=True)
+    # 4. DOWNLOAD & PROCESS MEDIA
+    cdn_url = item.get("videoUrl")
+    if cdn_url:
+        res = requests.get(cdn_url, timeout=30)
+        reel.video_file.save(f"{short_code}.mp4", ContentFile(res.content), save=True)
         
-        # B. Start Engine
-        print("⚙️ Starting Video Engine...")
+        print("⚙️ Processing Media...")
         engine = VideoEngine(reel.video_file.path, short_code)
         
-        # C. Run AI Tools (Frames + Audio)
+        # A. Extract Frames
         frame_data = engine.extract_frames(interval=2)
-        audio_path, transcript = engine.extract_and_transcribe_audio()
-        
-        # D. Save Audio & Transcript
+        print(f"💾 Saving {len(frame_data)} frames...")
+        for f in frame_data:
+            ReelFrame.objects.create(reel=reel, image=f['path'], timestamp=f['time'])
+
+        # B. Extract Audio
+        audio_path = engine.extract_audio_only()
         if audio_path:
             reel.audio_file.name = audio_path
-        reel.transcript_text = transcript
-        reel.is_processed = True
-        reel.save()
+            reel.save()
+
+        # C. Call Gemini
+        print("🧠 Calling Gemini (Transcript + Vision)...")
+        ai_service = GeminiService()
         
-        # E. Save Frames to DB
-        print(f"💾 Saving {len(frame_data)} frames to database...")
-        for item in frame_data:
-            ReelFrame.objects.create(
-                reel=reel, 
-                image=item['path'],     # Path
-                timestamp=item['time']  # Seconds
-            )
+        full_audio_path = reel.audio_file.path if reel.audio_file else None
+        ai_result_json = ai_service.analyze_reel(reel, audio_path=full_audio_path)
+        
+        if ai_result_json:
+            try:
+                data = json.loads(ai_result_json)
+                reel.transcript_text = data.get("transcript")
+                reel.ai_location_name = data.get("location")
+                reel.ai_summary = data.get("summary")
+                reel.is_processed = True
+                reel.save()
+                
+                print(f"✅ TRANSCRIPT: {reel.transcript_text[:50]}...")
+                print(f"📍 LOCATION: {reel.ai_location_name}")
+            except Exception as e:
+                print(f"⚠️ Failed to parse Gemini JSON: {e}")
 
     return reel
