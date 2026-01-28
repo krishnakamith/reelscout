@@ -8,6 +8,8 @@ class ScrapedReel(models.Model):
     
     # 2. MEDIA ASSETS (Stored locally to save money)
     video_file = models.FileField(upload_to='video/', null=True, blank=True)
+    # 👇 NEW: Essential for Whisper to access the audio
+    audio_file = models.FileField(upload_to='audio/', null=True, blank=True)
     thumbnail_url = models.URLField(max_length=1000, null=True, blank=True)
     
     # 3. TEXT & CONTEXT
@@ -34,3 +36,13 @@ class ScrapedReel(models.Model):
 
     def __str__(self):
         return f"{self.short_code} ({self.author_handle})"
+
+# 👇 NEW MODEL: Stores the extracted frames for Gemini
+class ReelFrame(models.Model):
+    reel = models.ForeignKey(ScrapedReel, related_name='frames', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to='frames/')
+    timestamp = models.FloatField(default=0.0) # Stores "At 2.5 seconds"
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.reel.short_code} @ {self.timestamp}s"

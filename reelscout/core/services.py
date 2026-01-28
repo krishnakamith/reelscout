@@ -4,7 +4,7 @@ from datetime import datetime
 from django.conf import settings
 from django.core.files.base import ContentFile
 from apify_client import ApifyClient
-from .models import ScrapedReel
+from .models import ScrapedReel, ReelFrame
 from .video_engine import VideoEngine
 
 def extract_shortcode(url):
@@ -21,7 +21,8 @@ def get_or_process_reel(reel_url):
     if existing_reel:
         return existing_reel
 
-    # 2. SCRAPE (Cheap Mode)
+    # 2. SCRAPE
+    print(f"🚀 Scraping {short_code}...")
     client = ApifyClient(settings.APIFY_TOKEN)
     run_input = {
         "username": [reel_url],
@@ -39,7 +40,7 @@ def get_or_process_reel(reel_url):
     if not items: raise Exception("No data found (Private reel?)")
     item = items[0]
 
-    # 3. MANUAL DOWNLOAD (Free Fix)
+    # 3. DOWNLOAD VIDEO
     video_content = None
     cdn_url = item.get("videoUrl")
     if cdn_url:
@@ -57,7 +58,7 @@ def get_or_process_reel(reel_url):
             formatted_date = datetime.fromisoformat(item.get("timestamp").replace("Z", "+00:00"))
         except: pass
 
-    # 4. SAVE
+    # 4. SAVE TO DB
     reel, created = ScrapedReel.objects.update_or_create(
         short_code=short_code,
         defaults={
@@ -74,22 +75,33 @@ def get_or_process_reel(reel_url):
         }
     )
 
-
     if video_content:
-        # 1. Save the Video File
+        # A. Save Video File
         file_name = f"{short_code}.mp4"
         reel.video_file.save(file_name, video_content, save=True)
         
-        # 2. Initialize the Engine
-        full_video_path = reel.video_file.path 
-        engine = VideoEngine(full_video_path, short_code)
+        # B. Start Engine
+        print("⚙️ Starting Video Engine...")
+        engine = VideoEngine(reel.video_file.path, short_code)
         
-        # 3. Mine the Data
-        engine.extract_frames(interval=2)
+        # C. Run AI Tools (Frames + Audio)
+        frame_data = engine.extract_frames(interval=2)
         audio_path, transcript = engine.extract_and_transcribe_audio()
         
-        # 4. Save Transcript to DB
+        # D. Save Audio & Transcript
+        if audio_path:
+            reel.audio_file.name = audio_path
         reel.transcript_text = transcript
+        reel.is_processed = True
         reel.save()
+        
+        # E. Save Frames to DB
+        print(f"💾 Saving {len(frame_data)} frames to database...")
+        for item in frame_data:
+            ReelFrame.objects.create(
+                reel=reel, 
+                image=item['path'],     # Path
+                timestamp=item['time']  # Seconds
+            )
 
     return reel
