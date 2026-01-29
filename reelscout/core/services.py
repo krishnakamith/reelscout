@@ -2,98 +2,122 @@ import re
 import os
 import json
 import requests
+import instaloader  # <--- Switched to Instaloader
 from datetime import datetime
 from django.conf import settings
 from django.core.files.base import ContentFile
 from apify_client import ApifyClient
-from instagrapi import Client
 from .models import ScrapedReel, ReelFrame
 from .video_engine import VideoEngine
 from .gemini_service import GeminiService
 
-# --- INSTAGRAPI SESSION MANAGER ---
-def get_instagram_client():
+# --- INSTALOADER SESSION MANAGER ---
+def get_instaloader_instance():
     """
-    Returns a logged-in Instagrapi Client.
-    Uses 'session.json' to reuse cookies (Anti-Ban protection).
+    Returns a loaded Instaloader instance using the saved session file.
     """
-    cl = Client()
-    session_file = "session.json"
+    print("\n--- 🔐 STARTING INSTALOADER SESSION ---")
+    
+    # 1. Configure for speed (skip downloading images/videos)
+    L = instaloader.Instaloader(
+        download_pictures=False,
+        download_videos=False, 
+        download_video_thumbnails=False,
+        download_geotags=False,
+        download_comments=False,
+        save_metadata=False,
+        compress_json=False
+    )
     
     user = os.getenv("INSTAGRAM_USER")
-    password = os.getenv("INSTAGRAM_PASSWORD")
-
-    if not user or not password:
-        print("⚠️ Missing INSTAGRAM_USER or INSTAGRAM_PASSWORD in .env")
+    if not user:
+        print("❌ ERROR: INSTAGRAM_USER not found in .env")
         return None
 
-    # 1. Try to load existing session
-    if os.path.exists(session_file):
+    # 2. Construct Session Path
+    # Instaloader saves sessions as "session-<username>"
+    session_filename = f"session-{user}"
+    session_path = os.path.join(settings.BASE_DIR, session_filename)
+    
+    print(f"📂 Looking for session file: {session_path}")
+
+    # 3. Load Session
+    if os.path.exists(session_path):
         try:
-            print("🔄 Loading Instagram session from file...")
-            cl.load_settings(session_file)
-            cl.login(user, password) 
-            print("✅ Session valid.")
-            return cl
+            print("🔄 Loading session from file...")
+            L.load_session_from_file(user, filename=session_path)
+            print("✅ Session loaded successfully.")
+            return L
         except Exception as e:
-            print(f"⚠️ Session invalid, logging in fresh... ({e})")
-
-    # 2. Fresh Login
-    try:
-        print(f"🔐 Logging in as {user}...")
-        cl.login(user, password)
-        cl.dump_settings(session_file) # Save cookies
-        print("✅ Login successful & session saved.")
-        return cl
-    except Exception as e:
-        print(f"❌ Instagram Login Failed: {e}")
-        return None
-
-def get_top_comments_text_only(reel_url, limit=100):
-    """
-    Fetches the top 10 most liked comments + replies.
-    Returns ONLY a list of text strings.
-    """
-    cl = get_instagram_client()
-    if not cl: return []
-
-    try:
-        # 1. Get Media ID
-        media_pk = cl.media_pk_from_url(reel_url)
-        print(f"💬 Fetching recent {limit} comments for ID: {media_pk}...")
-
-        # 2. Fetch & Sort
-        comments = cl.media_comments(media_pk, amount=limit)
-        sorted_comments = sorted(comments, key=lambda c: c.like_count, reverse=True)
-        top_batch = sorted_comments[:10]
+            print(f"⚠️ Failed to load session: {e}")
+            print("👉 Tip: Run 'python setup_session.py' to regenerate it.")
+    else:
+        print("⚠️ Session file not found!")
+        print(f"👉 Please run the 'setup_session.py' script first to create '{session_filename}'.")
+        print("⚠️ Attempting anonymous access (Likely to fail for comments)...")
         
-        # 3. Extract CLEAN TEXT
-        text_list = []
-        print(f"🕵️ Extracting text from top {len(top_batch)} conversations...")
+    return L
+
+def get_comments_instaloader(short_code, limit=100):
+    """
+    Fetches comments using Instaloader and returns a list of strings.
+    """
+    print(f"\n--- 💬 STARTING INSTALOADER SCRAPER ({limit} limit) ---")
+    
+    L = get_instaloader_instance()
+    if not L: return []
+
+    clean_comments = []
+    
+    try:
+        # 1. Get Post
+        print(f"🔗 Resolving Post for shortcode: {short_code}...")
+        post = instaloader.Post.from_shortcode(L.context, short_code)
         
-        for c in top_batch:
-            # Add the parent comment text
-            if c.text:
-                text_list.append(c.text.strip())
+        print(f"📥 Fetching comments...")
+        
+        # 2. Iterate Comments
+        # Instaloader iterator is lazy. We must manually count/break.
+        count = 0
+        
+        # get_comments() returns top-level comments
+        for comment in post.get_comments():
+            if count >= limit:
+                break
             
-            # Add reply texts (if any)
-            if c.child_comment_count > 0:
+            # Parent Text
+            text = comment.text.strip()
+            if text:
+                clean_comments.append(text)
+                
+            # Replies (Instaloader calls them 'answers')
+            # Fetching replies is an extra API call per comment.
+            # We limit this to avoid rate limits.
+            if comment.answers_count > 0:
                 try:
-                    replies = cl.media_comment_answers(media_pk, c.pk)
-                    for r in replies:
-                        if r.text:
-                            text_list.append(r.text.strip())
+                    for answer in comment.answers:
+                        reply_text = answer.text.strip()
+                        if reply_text:
+                            clean_comments.append(reply_text)
+                        
+                        # Hard limit on total comments to prevent infinite loops
+                        if len(clean_comments) >= limit:
+                            break
                 except Exception as e:
                     print(f"⚠️ Error fetching reply: {e}")
 
-        print(f"✅ Captured {len(text_list)} text snippets.")
-        return text_list
+            count += 1
+            if len(clean_comments) >= limit:
+                break
+
+        print(f"📦 Final Count: {len(clean_comments)} comments captured.")
+        return clean_comments
 
     except Exception as e:
-        print(f"❌ Comment Scraping Error: {e}")
+        print(f"❌ INSTALOADER ERROR: {e}")
         return []
 
-# --- MAIN LOGIC ---
+# --- MAIN LOGIC (Unchanged) ---
 
 def extract_shortcode(url):
     match = re.search(r'/(?:reel|p)/([^/?#&]+)', url)
@@ -107,7 +131,7 @@ def get_or_process_reel(reel_url):
     if existing_reel: return existing_reel
 
     # 1. SCRAPE VIDEO (Apify)
-    print(f"🚀 Scraping Video Data for {short_code}...")
+    print(f"\n🚀 STEP 1: Scraping Video Data for {short_code}...")
     client = ApifyClient(settings.APIFY_TOKEN)
     
     run_input = {
@@ -149,34 +173,42 @@ def get_or_process_reel(reel_url):
     # 2. DOWNLOAD & PROCESS MEDIA
     cdn_url = item.get("videoUrl")
     if cdn_url:
+        print("\n⚙️ STEP 2: Processing Media...")
         res = requests.get(cdn_url, timeout=30)
         reel.video_file.save(f"{short_code}.mp4", ContentFile(res.content), save=True)
         
-        print("⚙️ Processing Media...")
         engine = VideoEngine(reel.video_file.path, short_code)
         
-        # A. Frames
+        # Frames
         frame_data = engine.extract_frames(interval=2)
         print(f"💾 Saving {len(frame_data)} frames...")
         for f in frame_data:
             ReelFrame.objects.create(reel=reel, image=f['path'], timestamp=f['time'])
 
-        # B. Audio
+        # Audio
         audio_path = engine.extract_audio_only()
         if audio_path:
             reel.audio_file.name = audio_path
             reel.save()
 
-        # C. FETCH COMMENTS (Text Only)
+        # C. FETCH COMMENTS (Instaloader)
         if not reel.comments_dump:
-            print("💬 Starting Text-Only Comment Search...")
-            # Returns a simple list: ["Cool!", "Where?", "Munnar"]
-            comments_text_list = get_top_comments_text_only(reel_url, limit=100)
-            reel.comments_dump = comments_text_list
-            reel.save()
+            print("\n⚙️ STEP 3: Starting Instaloader Comment Search...")
+            
+            comments_text_list = get_comments_instaloader(short_code, limit=100)
+            
+            print(f"🛑 DEBUG: Scraper returned {len(comments_text_list)} items.")
+            print(f"🛑 DEBUG: Sample: {comments_text_list[:3]}")
+
+            if comments_text_list:
+                reel.comments_dump = comments_text_list
+                reel.save()
+                print("💾 SAVED comments to Database.")
+            else:
+                print("⚠️ WARNING: Empty list returned. Check if session file exists.")
 
         # D. GEMINI ANALYSIS
-        print("🧠 Calling Gemini...")
+        print("\n🧠 STEP 4: Calling Gemini...")
         ai_service = GeminiService()
         full_audio_path = reel.audio_file.path if reel.audio_file else None
         
