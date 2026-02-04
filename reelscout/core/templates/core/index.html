@@ -3,215 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ReelScout - Import</title>
+    <title>ReelScout - Bridge Mode</title>
     <style>
-        body {
-            background-color: #121212;
-            color: #ffffff;
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .container {
-            width: 100%;
-            max-width: 500px;
-            padding: 20px;
-            background: #1e1e1e;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            text-align: center;
-        }
-        h1 { margin-bottom: 20px; color: #2f6fe6; }
+        body { background-color: #121212; color: #ffffff; font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
+        .container { width: 100%; max-width: 600px; text-align: center; }
         
-        /* Input Area */
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        input {
-            flex: 1;
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            background: #2c2c2c;
-            color: white;
-            outline: none;
-        }
-        button {
-            padding: 12px 20px;
-            border-radius: 6px;
-            border: none;
-            background: #2f6fe6;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
+        input, textarea { width: 90%; padding: 12px; border-radius: 6px; border: none; margin-bottom: 10px; background: #333; color: white; }
+        button { padding: 12px 20px; border-radius: 6px; border: none; background: #2f6fe6; color: white; cursor: pointer; font-weight: bold; }
         button:hover { background: #1a54c2; }
-        button:disabled { background: #555; cursor: not-allowed; }
-
-        /* Result Card (Hidden by default) */
-        #result-card {
-            display: none;
-            background: #252525;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-top: 20px;
-            text-align: left;
-            border: 1px solid #333;
-        }
-        video {
-            width: 100%;
-            display: block;
-            background: black;
-        }
-        .info { padding: 15px; }
-        .badge {
-            display: inline-block;
-            background: #333;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #aaa;
-            margin-bottom: 8px;
-        }
-        .location {
-            font-size: 18px;
-            font-weight: bold;
-            color: #4caf50; /* Green for success */
-            margin-bottom: 5px;
-        }
-        .caption {
-            font-size: 14px;
-            color: #ccc;
-            line-height: 1.4;
-        }
-        .error {
-            color: #ff5252;
-            margin-top: 10px;
-            font-size: 14px;
-            display: none;
-        }
+        
+        .step-box { background: #1e1e1e; padding: 20px; margin-top: 20px; border-radius: 8px; border-left: 5px solid #4caf50; text-align: left; display: none; }
+        code { display: block; background: #000; padding: 10px; color: #0f0; font-size: 11px; overflow-x: auto; margin-top: 10px; border-radius: 6px; white-space: pre-wrap; }
+        .copy-btn { background: #444; font-size: 11px; padding: 5px 10px; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>ReelScout</h1>
-    <p style="color:#aaa; margin-bottom:20px;">Paste an Instagram Reel link to extract data.</p>
+    <h1>ReelScout 🕵️</h1>
+    <div style="display:none;">{% csrf_token %}</div>
 
-    <div class="input-group">
-        <input type="text" id="reelLink" placeholder="https://www.instagram.com/reel/..." />
-        <button id="btnSearch" onclick="processReel()">Import</button>
-    </div>
+    <input type="text" id="reelLink" placeholder="Paste Instagram Reel URL..." />
+    <button id="btnSearch" onclick="processReel()">1. Import Reel</button>
 
-    <div id="errorMsg" class="error"></div>
+    <div id="step2" class="step-box">
+        <h3>✅ Step 1: Media Imported</h3>
+        <p>Run this "Smart Script" in the Instagram Console to get ranked comments.</p>
+        
+<code id="jsCode">
+async function run() {
+    console.log("🚀 Script Started...");
 
-    <div id="result-card">
-        <video id="vidPlayer" controls playsinline>
-            <source src="" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
+    // 1. Get Shortcode
+    const match = window.location.pathname.match(/\/reels?\/([^\/]+)/);
+    const sc = match ? match[1] : null;
+    if (!sc) { alert("❌ Error: Can't find Reel ID in URL"); return; }
+    console.log("✅ Reel ID found:", sc);
 
-        <div class="info">
-            <div class="badge" id="authorBadge">@author</div>
-            <div class="location" id="locationText">📍 Unknown Location</div>
-            <p class="caption" id="captionText">No caption...</p>
-            <div style="margin-top:10px; font-size:12px; color:#555;">
-                Video saved locally to: <span id="pathText">...</span>
-            </div>
-        </div>
+    // 2. Scrape Text (Instant Mode - No clicking for now)
+    const comments = [];
+    document.querySelectorAll('span').forEach(s => {
+        if (s.innerText.length > 2 && s.innerText.length < 300) comments.push(s.innerText);
+    });
+    const uniqueComments = [...new Set(comments)];
+    console.log(`✅ Scraped ${uniqueComments.length} comments.`);
+
+    // 3. Prepare Data
+    const payload = JSON.stringify({ short_code: sc, comments: uniqueComments });
+
+    // 4. Try to Copy (The "Triple Fallback" Method)
+    try {
+        // Method A: Standard Clipboard API
+        await navigator.clipboard.writeText(payload);
+        alert("✅ COPIED! (Method A)\n\nGo paste it in ReelScout.");
+    } catch (errA) {
+        console.warn("Method A failed. Trying Method B...");
+        try {
+            // Method B: DevTools Command
+            copy(payload);
+            alert("✅ COPIED! (Method B)\n\nGo paste it in ReelScout.");
+        } catch (errB) {
+            console.warn("Method B failed. Switching to Manual Mode.");
+            // Method C: Brute Force Prompt
+            window.prompt("❌ Auto-copy failed. Press Ctrl+C to copy this manually:", payload);
+        }
+    }
+}
+run();
+        </code>
+        <button class="copy-btn" onclick="copyCode()">📋 Copy Script</button>
+
+        <hr style="border-color:#333; margin: 20px 0;">
+
+        <h4>📋 Final Step: Paste Data Here</h4>
+        <textarea id="pasteBox" rows="5" placeholder="Paste the copied data here..."></textarea>
+        <button onclick="saveData()">💾 Save Comments</button>
     </div>
 </div>
 
 <script>
     async function processReel() {
-        const link = document.getElementById('reelLink').value.trim();
+        const link = document.getElementById('reelLink').value;
         const btn = document.getElementById('btnSearch');
-        const card = document.getElementById('result-card');
-        const errorDiv = document.getElementById('errorMsg');
+        if(!link) return alert("Enter URL");
         
-        // Reset UI
-        errorDiv.style.display = 'none';
-        card.style.display = 'none';
-
-        if (!link) {
-            showError("Please enter a link first.");
-            return;
-        }
-
-        // 1. Set Loading State
-        btn.innerText = "⏳ Processing...";
+        btn.innerText = "⏳ Importing...";
         btn.disabled = true;
-
+        
         try {
-            // 2. Call Django API
             const response = await fetch('/api/search/', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken') // Required for Django Security
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
                 body: JSON.stringify({ url: link })
             });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                const data = result.data;
-                
-                // 3. Populate Data
-                document.getElementById('authorBadge').innerText = '@' + (data.author || 'User');
-                document.getElementById('locationText').innerText = '📍 ' + (data.location_name || 'Processing Location...');
-                document.getElementById('captionText').innerText = data.caption_snippet || 'No caption available.';
-                document.getElementById('pathText').innerText = data.video_local_path;
-
-                // 4. Load Video Source
-                const videoEl = document.getElementById('vidPlayer');
-                videoEl.src = data.video_local_path;
-                videoEl.load();
-
-                // Show Card
-                card.style.display = 'block';
+            const data = await response.json();
+            if(data.status === 'success') {
+                document.getElementById('step2').style.display = 'block';
             } else {
-                showError(result.error || "Failed to process reel.");
+                alert("Server Error: " + (data.error || "Unknown"));
             }
-
-        } catch (err) {
-            console.error(err);
-            showError("Server Error: " + err.message);
-        } finally {
-            btn.innerText = "Import";
-            btn.disabled = false;
-        }
+        } catch(e) { alert("Connection Error"); } 
+        finally { btn.innerText = "1. Import Reel"; btn.disabled = false; }
     }
 
-    function showError(msg) {
-        const err = document.getElementById('errorMsg');
-        err.innerText = "❌ " + msg;
-        err.style.display = 'block';
+    async function saveData() {
+        const rawData = document.getElementById('pasteBox').value;
+        if(!rawData) return alert("Paste the data first!");
+
+        try {
+            const payload = JSON.parse(rawData);
+            const response = await fetch('/api/save-comments/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if(result.status === 'success') {
+                alert("🎉 SUCCESS! Saved " + result.count + " comments.");
+            } else {
+                alert("❌ Error: " + result.error);
+            }
+        } catch(e) { alert("Invalid Data. Did you copy correctly?"); }
     }
 
-    // Helper to get Django's CSRF token
     function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+        let v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return v ? v[2] : null;
+    }
+    function copyCode() {
+        navigator.clipboard.writeText(document.getElementById('jsCode').innerText);
+        alert("Copied! Run in Instagram Console.");
     }
 </script>
-
 </body>
 </html>

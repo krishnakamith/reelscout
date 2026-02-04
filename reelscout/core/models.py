@@ -14,8 +14,8 @@ class ScrapedReel(models.Model):
     
     # 3. TEXT & CONTEXT
     raw_caption = models.TextField(null=True, blank=True)
-    transcript_text = models.TextField(null=True, blank=True) 
-    comments_dump = models.JSONField(default=list, blank=True)
+    transcript_text = models.TextField(null=True, blank=True)
+    comments_dump = models.JSONField(default=list, blank=True, null=True)
 
     # 4. METADATA
     author_handle = models.CharField(max_length=100, null=True, blank=True)
