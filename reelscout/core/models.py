@@ -1,4 +1,31 @@
 from django.db import models
+from django.utils.text import slugify
+
+class Location(models.Model):
+    # Basic Info
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+    category = models.CharField(max_length=100, help_text="e.g. Waterfall, Cafe, Beach", null=True, blank=True)
+    
+    # Wiki Content (The latest 'best' version)
+    description = models.TextField(blank=True, help_text="Wiki-style description")
+    how_to_reach = models.TextField(blank=True)
+    best_time_to_visit = models.TextField(blank=True)
+    
+    # Map Data
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    
+    # Metadata
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
 class ScrapedReel(models.Model):
     # 1. IDENTIFIERS
@@ -34,6 +61,14 @@ class ScrapedReel(models.Model):
     is_processed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    location = models.ForeignKey(
+        Location, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reels'
+    )
+
     def __str__(self):
         return f"{self.short_code} ({self.author_handle})"
 
@@ -46,3 +81,13 @@ class ReelFrame(models.Model):
 
     def __str__(self):
         return f"{self.reel.short_code} @ {self.timestamp}s"
+    
+class LocationRevision(models.Model):
+    location = models.ForeignKey(Location, related_name='revisions', on_delete=models.CASCADE)
+    content_snapshot = models.JSONField(help_text="Stores the full description/meta at the time of edit")
+    edited_by = models.CharField(max_length=100, default="Anonymous")
+    created_at = models.DateTimeField(auto_now_add=True)
+    comment = models.CharField(max_length=255, help_text="What was changed?")
+
+    def __str__(self):
+        return f"Revision for {self.location.name} at {self.created_at}"

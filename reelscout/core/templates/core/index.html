@@ -107,24 +107,37 @@ run();
     }
 
     async function saveData() {
-        const rawData = document.getElementById('pasteBox').value;
-        if(!rawData) return alert("Paste the data first!");
+    const rawData = document.getElementById('pasteBox').value;
+    if(!rawData) return alert("Paste the data first!");
 
-        try {
-            const payload = JSON.parse(rawData);
-            const response = await fetch('/api/save-comments/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            if(result.status === 'success') {
-                alert("🎉 SUCCESS! Saved " + result.count + " comments.");
+    try {
+        const payload = JSON.parse(rawData);
+        const response = await fetch('/api/save-comments/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if(result.status === 'success') {
+            alert("🎉 SUCCESS! Saved " + result.count + " comments.");
+            
+            // If the server provided a slug, redirect to the new Location Wiki page
+            if (result.location_slug) {
+                window.location.href = `/location/${result.location_slug}/`;
             } else {
-                alert("❌ Error: " + result.error);
+                // Fallback if no location was identified
+                alert("Comments saved, but no specific location was identified for redirection.");
             }
-        } catch(e) { alert("Invalid Data. Did you copy correctly?"); }
+        } else {
+            alert("❌ Error: " + result.error);
+        }
+    } catch(e) { 
+        console.error(e);
+        alert("Invalid Data. Did you copy correctly?"); 
     }
+}
 
     function getCookie(name) {
         let v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');

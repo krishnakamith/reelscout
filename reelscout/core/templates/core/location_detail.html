@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ location.name }} - ReelScout</title>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; padding: 40px; }
+        .wiki-section { border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+        .reel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .reel-card { background: #1e1e1e; padding: 10px; border-radius: 8px; text-align: center; }
+        .reel-card img { width: 100%; border-radius: 4px; }
+        .badge { background: #2f6fe6; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <h1>{{ location.name }} <span class="badge">{{ location.category }}</span></h1>
+    <div class="wiki-section">
+        <h3>About this Place</h3>
+        <p>{{ location.description|default:"No description available yet." }}</p>
+    </div>
+    <h2>Source Reels</h2>
+    <div class="reel-grid">
+        {% for reel in reels %}
+        <div class="reel-card">
+            <a href="{{ reel.original_url }}" target="_blank">
+                <img src="{{ reel.thumbnail_url }}">
+                <p>@{{ reel.author_handle }}</p>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
