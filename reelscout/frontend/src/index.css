@@ -1,0 +1,164 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ReelScout Design System - Kerala Tropical Theme */
+
+@layer base {
+  :root {
+    /* Cream/Off-white background inspired by Kerala sand */
+    --background: 45 30% 97%;
+    --foreground: 150 25% 15%;
+
+    /* Card surfaces - warm white */
+    --card: 45 25% 99%;
+    --card-foreground: 150 25% 15%;
+
+    --popover: 45 25% 99%;
+    --popover-foreground: 150 25% 15%;
+
+    /* Primary - Deep Forest Green (Kerala forests) */
+    --primary: 155 45% 25%;
+    --primary-foreground: 45 30% 97%;
+
+    /* Secondary - Warm Terracotta/Coral */
+    --secondary: 15 65% 55%;
+    --secondary-foreground: 45 30% 97%;
+
+    /* Muted - Soft sage */
+    --muted: 150 15% 90%;
+    --muted-foreground: 150 20% 40%;
+
+    /* Accent - Tropical teal */
+    --accent: 175 50% 35%;
+    --accent-foreground: 45 30% 97%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 150 15% 85%;
+    --input: 150 15% 85%;
+    --ring: 155 45% 25%;
+
+    --radius: 0.75rem;
+
+    /* Custom ReelScout tokens */
+    --kerala-green: 155 45% 25%;
+    --kerala-green-light: 155 35% 45%;
+    --kerala-terracotta: 15 65% 55%;
+    --kerala-gold: 42 85% 55%;
+    --kerala-sand: 45 30% 92%;
+    --kerala-water: 185 55% 45%;
+    
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(155 45% 25%) 0%, hsl(175 50% 35%) 50%, hsl(155 35% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(45 25% 99%) 0%, hsl(45 30% 95%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(15 65% 55%) 0%, hsl(42 85% 55%) 100%);
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 8px -2px hsl(150 25% 15% / 0.08);
+    --shadow-md: 0 8px 24px -4px hsl(150 25% 15% / 0.12);
+    --shadow-lg: 0 16px 48px -8px hsl(150 25% 15% / 0.16);
+    --shadow-glow: 0 0 40px -10px hsl(155 45% 25% / 0.3);
+
+    /* Sidebar */
+    --sidebar-background: 150 20% 98%;
+    --sidebar-foreground: 150 25% 15%;
+    --sidebar-primary: 155 45% 25%;
+    --sidebar-primary-foreground: 45 30% 97%;
+    --sidebar-accent: 150 15% 94%;
+    --sidebar-accent-foreground: 150 25% 15%;
+    --sidebar-border: 150 15% 88%;
+    --sidebar-ring: 155 45% 25%;
+  }
+
+  .dark {
+    --background: 150 20% 8%;
+    --foreground: 45 30% 95%;
+
+    --card: 150 18% 12%;
+    --card-foreground: 45 30% 95%;
+
+    --popover: 150 18% 12%;
+    --popover-foreground: 45 30% 95%;
+
+    --primary: 155 40% 50%;
+    --primary-foreground: 150 20% 8%;
+
+    --secondary: 15 55% 50%;
+    --secondary-foreground: 45 30% 97%;
+
+    --muted: 150 15% 20%;
+    --muted-foreground: 150 15% 65%;
+
+    --accent: 175 45% 40%;
+    --accent-foreground: 45 30% 97%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 150 15% 20%;
+    --input: 150 15% 20%;
+    --ring: 155 40% 50%;
+
+    --sidebar-background: 150 18% 10%;
+    --sidebar-foreground: 45 30% 95%;
+    --sidebar-primary: 155 40% 50%;
+    --sidebar-primary-foreground: 150 20% 8%;
+    --sidebar-accent: 150 15% 18%;
+    --sidebar-accent-foreground: 45 30% 95%;
+    --sidebar-border: 150 15% 18%;
+    --sidebar-ring: 155 40% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient-hero {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-accent {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .bg-gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glass {
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+}
