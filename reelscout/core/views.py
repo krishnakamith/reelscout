@@ -4,6 +4,8 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 from .services import get_or_process_reel
 from .models import ScrapedReel, Location
+from rest_framework import generics
+from .serializers import LocationSerializer
 
 def home(request):
     return render(request, 'core/index.html')
@@ -76,3 +78,14 @@ def save_comments_from_browser(request):
         })
     except ScrapedReel.DoesNotExist:
         return Response({"error": "Reel not found"}, status=404)
+    
+    # This window serves a list of ALL locations (useful for your map page later)
+class LocationListAPI(generics.ListAPIView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+
+# This window serves the details of exactly ONE location (for the detail page)
+class LocationDetailAPI(generics.RetrieveAPIView):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    lookup_field = 'slug'

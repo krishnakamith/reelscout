@@ -29,17 +29,43 @@ export function ReelSubmissionForm() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate submission
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Send the data to our Vite proxy, which forwards it to Django
+      const response = await fetch('/api/search/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Django is expecting the field to be named 'url', so we map reelUrl to url
+        body: JSON.stringify({
+          url: formData.reelUrl,
+          locationName: formData.locationName,
+          district: formData.district,
+          tags: formData.tags,
+          description: formData.description
+        }),
+      });
 
-    toast.success("Reel submitted successfully! Our AI will analyze it shortly.", {
-      description: "Thank you for contributing to ReelScout!",
-    });
+      const data = await response.json();
 
-    setIsSubmitting(false);
-    navigate("/");
+      if (response.ok) {
+        toast.success("Reel submitted successfully!", {
+          description: `Detected location: ${data.data.location_name}`,
+        });
+        // Clear the form or navigate away
+        navigate("/");
+      } else {
+        // If Django sends back an error (like an invalid URL)
+        throw new Error(data.error || "Submission failed");
+      }
+    } catch (error) {
+      toast.error("Error submitting reel", {
+        description: error instanceof Error ? error.message : "Our AI couldn't process this reel.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
