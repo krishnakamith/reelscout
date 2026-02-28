@@ -59,7 +59,6 @@ class GeminiService:
         else:
             print("⚠️ No audio path provided to GeminiService.")
 
-        # 3. Prompt
         prompt = f"""
         You are a Malayalam language expert.
         
@@ -70,13 +69,15 @@ class GeminiService:
         TASK 1: Transcribe the spoken Malayalam exactly. 
                 If there is NO speech (only music), write "Music only".
         
-        TASK 2: Identify the location.
+        TASK 2: Identify the location and provide its geographic latitude and longitude coordinates.
 
         Format strictly as JSON:
         {{
             "transcript": "Your transcript here...",
             "location": "Place Name",
             "district": "District Name",
+            "latitude": 10.8505,
+            "longitude": 76.2711,
             "summary": "Reasoning..."
         }}
         """

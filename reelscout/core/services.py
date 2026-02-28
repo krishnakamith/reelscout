@@ -99,9 +99,13 @@ def get_or_process_reel(reel_url):
                 if loc_name:
                     location_obj, loc_created = Location.objects.get_or_create(
                         name=loc_name,
-                        defaults={'category': data.get('category', 'Uncategorized')}
+                        defaults={
+                            'category': data.get('category', 'Uncategorized'),
+                            'latitude': data.get('latitude'),
+                            'longitude': data.get('longitude')
+                        }
                     )
-                    reel.location = location_obj # Link the reel to the Location entry
+                    reel.location = location_obj
                 
                 reel.transcript_text = data.get("transcript")
                 reel.ai_location_name = loc_name

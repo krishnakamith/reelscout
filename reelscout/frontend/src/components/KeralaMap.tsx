@@ -1,94 +1,109 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import keralaMapImage from "@/assets/kerala-map.jpg";
+import { MapContainer, TileLayer, GeoJSON, Marker, Tooltip as LeafletTooltip } from "react-leaflet";
+import { divIcon } from "leaflet";
+// Essential CSS for the map to render correctly
+import "leaflet/dist/leaflet.css";
 
-// Sample documented locations from "previous reels"
-// Locations positioned to match the uploaded Kerala map image
-const locations = [
-  { id: "bekal", name: "Bekal Fort", x: 38, y: 8, district: "Kasaragod", reelCount: 32 },
-  { id: "wayanad", name: "Wayanad Hills", x: 48, y: 14, district: "Wayanad", reelCount: 112 },
-  { id: "kozhikode", name: "Kozhikode Beach", x: 35, y: 22, district: "Kozhikode", reelCount: 56 },
-  { id: "athirappilly", name: "Athirappilly Falls", x: 50, y: 38, district: "Thrissur", reelCount: 24 },
-  { id: "fort-kochi", name: "Fort Kochi", x: 42, y: 48, district: "Ernakulam", reelCount: 134 },
-  { id: "munnar", name: "Munnar Tea Gardens", x: 58, y: 52, district: "Idukki", reelCount: 156 },
-  { id: "kumarakom", name: "Kumarakom Bird Sanctuary", x: 50, y: 58, district: "Kottayam", reelCount: 41 },
-  { id: "thekkady", name: "Thekkady Wildlife", x: 62, y: 62, district: "Idukki", reelCount: 78 },
-  { id: "alleppey", name: "Alleppey Backwaters", x: 48, y: 65, district: "Alappuzha", reelCount: 89 },
-  { id: "varkala", name: "Varkala Cliff", x: 55, y: 78, district: "Thiruvananthapuram", reelCount: 67 },
-  { id: "kovalam", name: "Kovalam Beach", x: 58, y: 88, district: "Thiruvananthapuram", reelCount: 45 },
-];
+// Describe the shape of the data coming from your Django API
+interface LocationData {
+  id: number;
+  name: string;
+  slug: string;
+  latitude: string;
+  longitude: string;
+  reels: any[];
+}
 
 export function KeralaMap() {
   const navigate = useNavigate();
-  const [hoveredLocation, setHoveredLocation] = useState<string | null>(null);
+  const [locations, setLocations] = useState<LocationData[]>([]);
+  const [geoData, setGeoData] = useState(null);
 
-  const handleLocationClick = (locationId: string) => {
-    navigate(`/location/${locationId}`);
+  useEffect(() => {
+    // 1. Fetch live locations from your Django backend
+    fetch("http://127.0.0.1:8000/api/locations/")
+      .then((res) => res.json())
+      .then((data) => {
+         // Filter out any locations that haven't had coordinates added yet
+         const validLocations = data.filter((loc: LocationData) => loc.latitude && loc.longitude);
+         setLocations(validLocations);
+      })
+      .catch((err) => console.error("Error fetching locations:", err));
+
+    // 2. Fetch the GeoJSON borders from your public folder
+    fetch("/kerala-districts.json")
+      .then((res) => res.json())
+      .then((data) => setGeoData(data))
+      .catch((err) => console.error("Error fetching GeoJSON:", err));
+  }, []);
+
+  // Recreate your pulsing Lucide pin using raw HTML and Tailwind classes
+  const createCustomIcon = () => {
+    return divIcon({
+      className: "bg-transparent border-none", // Remove default leaflet marker styling
+      html: `
+        <div class="relative group cursor-pointer w-6 h-6 -ml-3 -mt-6">
+          <div class="absolute inset-0 rounded-full bg-secondary/50 animate-ping opacity-75"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="relative z-10 text-primary-foreground fill-kerala-terracotta hover:fill-secondary transition-colors duration-300">
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+      `,
+    });
   };
 
   return (
-    <div className="relative w-full max-w-xl mx-auto">
-      {/* Kerala Map Image */}
-      <img
-        src={keralaMapImage}
-        alt="Kerala Map"
-        className="w-full h-auto rounded-2xl shadow-2xl"
-        style={{ filter: "drop-shadow(0 20px 50px hsl(var(--kerala-green) / 0.3))" }}
-      />
+    <div className="relative w-full max-w-6xl mx-auto h-[90vh] min-h-[800px] rounded-2xl overflow-hidden shadow-2xl border-4 border-muted">
+  <MapContainer
+        center={[10.8505, 76.2711]} // Geographic center of Kerala
+        zoom={7}
+        scrollWheelZoom={false}
+        className="w-full h-full z-0"
+      >
+        {/* A clean, minimalist basemap to make your pins and borders pop */}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+          attribution='&copy; OpenStreetMap contributors'
+        />
 
-      {/* Location markers overlaid on the map */}
-      <div className="absolute inset-0">
+        {/* Draw the district borders if the file loaded successfully */}
+        {geoData && (
+          <GeoJSON
+            data={geoData}
+            style={{
+              fillColor: "#4ade80", // Adjust to match your specific kerala-green hex
+              weight: 2,
+              color: "white",
+              fillOpacity: 0.15
+            }}
+          />
+        )}
+
+        {/* Loop through your Django database locations and drop a pin for each */}
         {locations.map((location) => (
-          <Tooltip key={location.id}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => handleLocationClick(location.id)}
-                onMouseEnter={() => setHoveredLocation(location.id)}
-                onMouseLeave={() => setHoveredLocation(null)}
-                className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 group ${
-                  hoveredLocation === location.id ? "scale-125 z-10" : "scale-100"
-                }`}
-                style={{ left: `${location.x}%`, top: `${location.y}%` }}
-              >
-                <div className={`relative ${hoveredLocation === location.id ? "animate-pulse-soft" : ""}`}>
-                  <MapPin
-                    className={`w-6 h-6 transition-colors duration-300 ${
-                      hoveredLocation === location.id
-                        ? "text-secondary fill-secondary"
-                        : "text-primary-foreground fill-kerala-terracotta"
-                    }`}
-                    style={{ filter: hoveredLocation === location.id ? "url(#glow)" : "none" }}
-                  />
-                  {/* Pulse ring effect */}
-                  <span
-                    className={`absolute inset-0 rounded-full bg-secondary/30 animate-ping ${
-                      hoveredLocation === location.id ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                </div>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent 
-              side="top" 
-              className="bg-card border-border shadow-md p-3 rounded-lg"
-            >
+          <Marker
+            key={location.id}
+            position={[parseFloat(location.latitude), parseFloat(location.longitude)]}
+            icon={createCustomIcon()}
+            eventHandlers={{
+              // Route to your existing detail page using the slug from the API
+              click: () => navigate(`/location/${location.slug}`),
+            }}
+          >
+            {/* Built-in Leaflet tooltip replacing the Shadcn one for compatibility */}
+            <LeafletTooltip direction="top" offset={[0, -20]} className="border-0 shadow-lg rounded-lg p-3">
               <div className="text-center">
-                <p className="font-display font-semibold text-foreground">{location.name}</p>
-                <p className="text-sm text-muted-foreground">{location.district}</p>
-                <p className="text-xs text-secondary font-medium mt-1">
-                  {location.reelCount} reels discovered
+                <p className="font-bold text-gray-900">{location.name}</p>
+                <p className="text-xs text-orange-600 font-medium mt-1">
+                  {location.reels?.length || 0} reels discovered
                 </p>
               </div>
-            </TooltipContent>
-          </Tooltip>
+            </LeafletTooltip>
+          </Marker>
         ))}
-      </div>
+      </MapContainer>
     </div>
   );
 }
