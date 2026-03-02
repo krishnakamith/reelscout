@@ -26,6 +26,7 @@ def search_reel(request):
             "data": {
                 "short_code": reel.short_code,
                 "location_name": reel.location.name if reel.location else "Unknown",
+                "location_slug": reel.location.slug if reel.location else None,
             }
         })
     except Exception as e:

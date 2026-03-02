@@ -1,11 +1,11 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, MapPin, Clock, Star, Users, ExternalLink, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChatbotSidebar } from "@/components/ChatbotSidebar";
 
-// Mock data for locations
-const locationData: Record<string, {
+type StaticLocation = {
   name: string;
   district: string;
   description: string;
@@ -14,8 +14,28 @@ const locationData: Record<string, {
   reelCount: number;
   tags: string[];
   highlights: string[];
-  reels: { id: string; thumbnail: string; creator: string }[];
-}> = {
+};
+
+type ApiLocation = {
+  id: number;
+  name: string;
+  slug: string;
+  category?: string | null;
+  description?: string | null;
+  how_to_reach?: string | null;
+  best_time_to_visit?: string | null;
+  latitude?: string | null;
+  longitude?: string | null;
+  reels: {
+    short_code: string;
+    thumbnail_url?: string | null;
+    author_handle?: string | null;
+  }[];
+};
+
+type UIReel = { id: string; thumbnail: string; creator: string };
+
+const locationData: Record<string, StaticLocation> = {
   "athirappilly": {
     name: "Athirappilly Falls",
     district: "Thrissur",
@@ -25,11 +45,6 @@ const locationData: Record<string, {
     reelCount: 24,
     tags: ["Waterfall", "Nature", "Photography", "Monsoon", "Wildlife"],
     highlights: ["80ft cascading waterfall", "Elephant sightings", "Nearby Vazhachal Falls", "Bamboo forest trails"],
-    reels: [
-      { id: "1", thumbnail: "/placeholder.svg", creator: "@kerala_explorer" },
-      { id: "2", thumbnail: "/placeholder.svg", creator: "@travel_with_sam" },
-      { id: "3", thumbnail: "/placeholder.svg", creator: "@nature_clicks" },
-    ],
   },
   "munnar": {
     name: "Munnar Tea Gardens",
@@ -40,11 +55,6 @@ const locationData: Record<string, {
     reelCount: 156,
     tags: ["Hill Station", "Tea Gardens", "Trekking", "Romantic", "Photography"],
     highlights: ["Endless tea plantations", "Eravikulam National Park", "Neelakurinji blooms", "Top Station viewpoint"],
-    reels: [
-      { id: "1", thumbnail: "/placeholder.svg", creator: "@munnar_diaries" },
-      { id: "2", thumbnail: "/placeholder.svg", creator: "@hillstation_lover" },
-      { id: "3", thumbnail: "/placeholder.svg", creator: "@tea_trails" },
-    ],
   },
   "alleppey": {
     name: "Alleppey Backwaters",
@@ -55,11 +65,6 @@ const locationData: Record<string, {
     reelCount: 89,
     tags: ["Backwaters", "Houseboat", "Relaxation", "Village Life", "Sunset"],
     highlights: ["Houseboat cruise", "Punnamada Lake", "Snake boat races", "Traditional toddy shops"],
-    reels: [
-      { id: "1", thumbnail: "/placeholder.svg", creator: "@backwater_tales" },
-      { id: "2", thumbnail: "/placeholder.svg", creator: "@kerala_houseboats" },
-      { id: "3", thumbnail: "/placeholder.svg", creator: "@village_vibes" },
-    ],
   },
 };
 
@@ -73,14 +78,85 @@ const defaultLocation = {
   reelCount: 10,
   tags: ["Undiscovered", "Nature", "Local Favorite"],
   highlights: ["Community discovered", "Off-beat destination", "Local experiences"],
-  reels: [],
 };
 
 export default function LocationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
-  const location = locationData[id || ""] || { ...defaultLocation, name: id?.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()) || "Unknown Location" };
+  const routeLocation = useLocation();
+  const [apiLocation, setApiLocation] = useState<ApiLocation | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const submittedReel = (routeLocation.state as { submittedReel?: { shortCode?: string; reelUrl?: string } } | null)?.submittedReel;
+
+  useEffect(() => {
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    fetch(`/api/locations/${id}/`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Location not found");
+        }
+        return res.json();
+      })
+      .then((data: ApiLocation) => setApiLocation(data))
+      .catch(() => setApiLocation(null))
+      .finally(() => setIsLoading(false));
+  }, [id]);
+
+  const fallbackLocation = useMemo(
+    () =>
+      locationData[id || ""] || {
+        ...defaultLocation,
+        name: id?.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Unknown Location",
+      },
+    [id]
+  );
+
+  const location = useMemo(() => {
+    if (!apiLocation) {
+      return fallbackLocation;
+    }
+
+    return {
+      name: apiLocation.name,
+      district: apiLocation.category || "Kerala",
+      description: apiLocation.description || defaultLocation.description,
+      bestTime: apiLocation.best_time_to_visit || defaultLocation.bestTime,
+      rating: 4.6,
+      reelCount: apiLocation.reels?.length || 0,
+      tags: [apiLocation.category || "Travel Spot", "Community Submitted"],
+      highlights: [
+        apiLocation.how_to_reach || "Directions and travel tips will appear here.",
+        "Mapped from real user-submitted reels",
+      ],
+    };
+  }, [apiLocation, fallbackLocation]);
+
+  const reels: UIReel[] = useMemo(() => {
+    const apiReels = (apiLocation?.reels || []).map((reel) => ({
+      id: reel.short_code,
+      thumbnail: reel.thumbnail_url || "/placeholder.svg",
+      creator: reel.author_handle ? `@${reel.author_handle}` : "@reelscout_user",
+    }));
+
+    if (submittedReel?.shortCode) {
+      return [
+        {
+          id: submittedReel.shortCode,
+          thumbnail: "/placeholder.svg",
+          creator: "@you",
+        },
+        ...apiReels,
+      ];
+    }
+
+    return apiReels;
+  }, [apiLocation, submittedReel]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,6 +184,12 @@ export default function LocationDetail() {
           <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-4">
             {location.name}
           </h1>
+
+          {isLoading && (
+            <p className="text-sm text-muted-foreground mb-3">
+              Loading location details...
+            </p>
+          )}
           
           <div className="flex flex-wrap items-center gap-4 mb-6">
             <div className="flex items-center gap-1">
@@ -164,13 +246,13 @@ export default function LocationDetail() {
         </section>
 
         {/* Reels Section */}
-        {location.reels.length > 0 && (
+        {reels.length > 0 && (
           <section className="mb-10">
             <h2 className="font-display text-2xl font-semibold text-foreground mb-4">
               Discovered Reels
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {location.reels.map((reel) => (
+              {reels.map((reel) => (
                 <div
                   key={reel.id}
                   className="group relative aspect-[9/16] rounded-xl bg-muted overflow-hidden cursor-pointer"

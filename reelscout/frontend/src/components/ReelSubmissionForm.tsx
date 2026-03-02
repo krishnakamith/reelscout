@@ -7,6 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+function toSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
 export function ReelSubmissionForm() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,8 +61,18 @@ export function ReelSubmissionForm() {
         toast.success("Reel submitted successfully!", {
           description: `Detected location: ${data.data.location_name}`,
         });
-        // Clear the form or navigate away
-        navigate("/");
+        const locationSlug =
+          data?.data?.location_slug ||
+          toSlug(data?.data?.location_name || formData.locationName || "hidden-gem");
+
+        navigate(`/location/${locationSlug}`, {
+          state: {
+            submittedReel: {
+              shortCode: data?.data?.short_code,
+              reelUrl: formData.reelUrl,
+            },
+          },
+        });
       } else {
         // If Django sends back an error (like an invalid URL)
         throw new Error(data.error || "Submission failed");
