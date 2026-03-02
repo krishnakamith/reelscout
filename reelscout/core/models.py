@@ -12,6 +12,8 @@ class Location(models.Model):
     how_to_reach = models.TextField(blank=True)
     best_time_to_visit = models.TextField(blank=True)
     
+    extracted_tips = models.JSONField(default=dict, blank=True)
+    
     # Map Data
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)

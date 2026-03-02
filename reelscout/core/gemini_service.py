@@ -60,16 +60,17 @@ class GeminiService:
             print("⚠️ No audio path provided to GeminiService.")
 
         prompt = f"""
-        You are a Malayalam language expert.
+        You are a Malayalam travel and language expert.
         
         INPUTS:
         - Audio: Listen for spoken Malayalam words. Ignore music.
         - Caption: "{reel.raw_caption}"
         
-        TASK 1: Transcribe the spoken Malayalam exactly. 
-                If there is NO speech (only music), write "Music only".
+        TASK 1: Transcribe the spoken Malayalam exactly. If NO speech, write "Music only".
         
         TASK 2: Identify the location and provide its geographic latitude and longitude coordinates.
+        
+        TASK 3: Extract any genuinely useful travel facts from the audio or caption (e.g., parking situations, entry fees, warnings, local food, best time to visit). Create your own descriptive, short snake_case keys for whatever you find. Do not force categories if they are not mentioned.
 
         Format strictly as JSON:
         {{
@@ -78,10 +79,15 @@ class GeminiService:
             "district": "District Name",
             "latitude": 10.8505,
             "longitude": 76.2711,
-            "summary": "Reasoning..."
+            "summary": "Reasoning...",
+            "extracted_tips": {{
+                "parking_fee": "50 INR",
+                "crowd_warning": "Very crowded on weekends",
+                "must_try_food": "Pazham Pori"
+            }}
         }}
         """
-
+        
         content = [prompt]
         if gemini_audio: content.append(gemini_audio)
         content.extend(image_objects)

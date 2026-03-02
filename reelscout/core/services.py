@@ -95,6 +95,10 @@ def get_or_process_reel(reel_url):
                 data = json.loads(ai_result_json)
                 loc_name = data.get("location")
                 
+                # reelscout/core/services.py
+
+                tips = data.get("extracted_tips", {})
+                
                 # Check for existing location or create a new one
                 if loc_name:
                     location_obj, loc_created = Location.objects.get_or_create(
@@ -102,9 +106,18 @@ def get_or_process_reel(reel_url):
                         defaults={
                             'category': data.get('category', 'Uncategorized'),
                             'latitude': data.get('latitude'),
-                            'longitude': data.get('longitude')
+                            'longitude': data.get('longitude'),
+                            'extracted_tips': tips
                         }
                     )
+                    
+                    # Merge new tips into an existing location's wiki
+                    if not loc_created and tips:
+                        current_tips = location_obj.extracted_tips or {}
+                        current_tips.update(tips)  # This safely merges the new dictionary into the old one
+                        location_obj.extracted_tips = current_tips
+                        location_obj.save()
+                        
                     reel.location = location_obj
                 
                 reel.transcript_text = data.get("transcript")
