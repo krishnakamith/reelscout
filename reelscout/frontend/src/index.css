@@ -4,44 +4,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ReelScout Design System - Kerala Tropical Theme */
+/* ReelScout Design System - Kerala Tropical Theme Merged with Lovable */
 
 @layer base {
   :root {
-    /* Cream/Off-white background inspired by Kerala sand */
+    /* Core Backgrounds & Foregrounds */
     --background: 45 30% 97%;
     --foreground: 150 25% 15%;
-
-    /* Card surfaces - warm white */
     --card: 45 25% 99%;
     --card-foreground: 150 25% 15%;
-
     --popover: 45 25% 99%;
     --popover-foreground: 150 25% 15%;
 
-    /* Primary - Deep Forest Green (Kerala forests) */
+    /* Brand Colors */
     --primary: 155 45% 25%;
     --primary-foreground: 45 30% 97%;
-
-    /* Secondary - Warm Terracotta/Coral */
     --secondary: 15 65% 55%;
     --secondary-foreground: 45 30% 97%;
-
-    /* Muted - Soft sage */
     --muted: 150 15% 90%;
     --muted-foreground: 150 20% 40%;
-
-    /* Accent - Tropical teal */
     --accent: 175 50% 35%;
     --accent-foreground: 45 30% 97%;
-
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 150 15% 85%;
     --input: 150 15% 85%;
     --ring: 155 45% 25%;
-
     --radius: 0.75rem;
 
     /* Custom ReelScout tokens */
@@ -51,6 +39,16 @@
     --kerala-gold: 42 85% 55%;
     --kerala-sand: 45 30% 92%;
     --kerala-water: 185 55% 45%;
+    
+    /* Lovable Custom Component Tokens */
+    --terracotta: 16 65% 55%;
+    --terracotta-light: 16 60% 70%;
+    --forest: 150 30% 35%;
+    --forest-light: 150 25% 50%;
+    --sand: 40 33% 94%;
+    --gold: 42 80% 55%;
+    --cream: 40 33% 98%;
+    --charcoal: 20 20% 15%;
     
     /* Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(155 45% 25%) 0%, hsl(175 50% 35%) 50%, hsl(155 35% 45%) 100%);
@@ -75,34 +73,40 @@
   }
 
   .dark {
+    /* Core Backgrounds & Foregrounds */
     --background: 150 20% 8%;
     --foreground: 45 30% 95%;
-
     --card: 150 18% 12%;
     --card-foreground: 45 30% 95%;
-
     --popover: 150 18% 12%;
     --popover-foreground: 45 30% 95%;
 
+    /* Brand Colors */
     --primary: 155 40% 50%;
     --primary-foreground: 150 20% 8%;
-
     --secondary: 15 55% 50%;
     --secondary-foreground: 45 30% 97%;
-
     --muted: 150 15% 20%;
     --muted-foreground: 150 15% 65%;
-
     --accent: 175 45% 40%;
     --accent-foreground: 45 30% 97%;
-
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 150 15% 20%;
     --input: 150 15% 20%;
     --ring: 155 40% 50%;
 
+    /* Lovable Custom Component Tokens (Dark) */
+    --terracotta: 16 70% 60%;
+    --terracotta-light: 16 65% 70%;
+    --forest: 150 25% 45%;
+    --forest-light: 150 20% 55%;
+    --sand: 35 15% 18%;
+    --gold: 42 75% 50%;
+    --cream: 20 20% 8%;
+    --charcoal: 40 20% 95%;
+
+    /* Sidebar */
     --sidebar-background: 150 18% 10%;
     --sidebar-foreground: 45 30% 95%;
     --sidebar-primary: 155 40% 50%;
@@ -129,7 +133,35 @@
   }
 }
 
+@layer components {
+  /* Lovable Components */
+  .glass-card {
+    @apply backdrop-blur-md bg-card/80 border border-border/50;
+    box-shadow: var(--shadow-md);
+  }
+
+  .hero-gradient {
+    background: var(--gradient-hero);
+  }
+
+  .accent-gradient {
+    background: var(--gradient-accent);
+  }
+
+  .card-gradient {
+    background: var(--gradient-card);
+  }
+
+  .text-gradient {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
 @layer utilities {
+  /* User Utilities */
   .text-gradient-hero {
     background: var(--gradient-hero);
     -webkit-background-clip: text;
@@ -160,5 +192,33 @@
     background: hsl(var(--background) / 0.8);
     backdrop-filter: blur(12px);
     border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  /* Lovable Animations */
+  .animate-fade-up {
+    animation: fadeUp 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
   }
 }

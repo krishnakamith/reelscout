@@ -19,8 +19,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/contribute" element={<Contribute />} />
-          <Route path="/location/:id" element={<LocationDetail />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* 👇 Change :id to :slug right here */}
+          <Route path="/location/:slug" element={<LocationDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
@@ -29,4 +29,3 @@ const App = () => (
 );
 
 export default App;
-

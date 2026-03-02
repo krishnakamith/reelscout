@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -65,6 +66,12 @@ export default {
           sand: "hsl(var(--kerala-sand))",
           water: "hsl(var(--kerala-water))",
         },
+        // 👇 NEW LOVABLE COLORS ADDED HERE
+        terracotta: "hsl(var(--terracotta))",
+        forest: "hsl(var(--forest))",
+        gold: "hsl(var(--gold))",
+        charcoal: "hsl(var(--charcoal))",
+        cream: "hsl(var(--cream))",
       },
       fontFamily: {
         display: ["'Playfair Display'", "serif"],
@@ -80,6 +87,8 @@ export default {
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         glow: "var(--shadow-glow)",
+        // 👇 NEW LOVABLE SHADOW ADDED HERE
+        card: "var(--shadow-card)",
       },
       keyframes: {
         "accordion-down": {
@@ -117,5 +126,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
