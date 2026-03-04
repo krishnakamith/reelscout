@@ -2,32 +2,219 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ location.name }} - ReelScout</title>
     <style>
-        body { background: #121212; color: white; font-family: sans-serif; padding: 40px; }
-        .wiki-section { border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-        .reel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .reel-card { background: #1e1e1e; padding: 10px; border-radius: 8px; text-align: center; }
-        .reel-card img { width: 100%; border-radius: 4px; }
-        .badge { background: #2f6fe6; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
+        body {
+            margin: 0;
+            padding: 30px 16px 50px;
+            background: #0f1115;
+            color: #edf2f7;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+        .page-header {
+            margin-bottom: 24px;
+        }
+        .badge {
+            display: inline-block;
+            background: #1f4d9d;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .section {
+            background: #171a21;
+            border: 1px solid #262c37;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+        .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .info-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #252b36;
+        }
+        .info-list li:last-child {
+            border-bottom: none;
+        }
+        .label {
+            color: #a0aec0;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .tips-list, .comments-list, .revisions-list {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .revisions-list li, .comments-list li, .tips-list li {
+            margin-bottom: 10px;
+        }
+        .reel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 14px;
+        }
+        .reel-card {
+            background: #11151c;
+            border: 1px solid #232a35;
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .reel-card img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .meta {
+            color: #9fb3c8;
+            font-size: 13px;
+            margin: 4px 0;
+        }
+        .chatbot-link {
+            display: inline-block;
+            margin-top: 8px;
+            background: #2f6fe6;
+            color: #fff;
+            text-decoration: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .chatbot-link:hover {
+            background: #245cc2;
+        }
+        .map-link {
+            color: #88b5ff;
+        }
     </style>
 </head>
 <body>
-    <h1>{{ location.name }} <span class="badge">{{ location.category }}</span></h1>
-    <div class="wiki-section">
-        <h3>About this Place</h3>
-        <p>{{ location.description|default:"No description available yet." }}</p>
-    </div>
-    <h2>Source Reels</h2>
-    <div class="reel-grid">
-        {% for reel in reels %}
-        <div class="reel-card">
-            <a href="{{ reel.original_url }}" target="_blank">
-                <img src="{{ reel.thumbnail_url }}">
-                <p>@{{ reel.author_handle }}</p>
-            </a>
+    <div class="container">
+        <div class="page-header">
+            <h1>
+                {{ location.name }}
+                {% if location.category %}
+                    <span class="badge">{{ location.category }}</span>
+                {% endif %}
+            </h1>
         </div>
-        {% endfor %}
+
+        <section class="section">
+            <h2>Information Collected</h2>
+            <ul class="info-list">
+                <li><span class="label">Description:</span> {{ location.description|default:"No description available yet." }}</li>
+                <li><span class="label">How to Reach:</span> {{ location.how_to_reach|default:"Not available yet." }}</li>
+                <li><span class="label">Best Time to Visit:</span> {{ location.best_time_to_visit|default:"Not available yet." }}</li>
+                <li><span class="label">Coordinates:</span>
+                    {% if location.latitude and location.longitude %}
+                        {{ location.latitude }}, {{ location.longitude }}
+                    {% else %}
+                        Not available yet.
+                    {% endif %}
+                </li>
+                <li><span class="label">Reels Found:</span> {{ reels|length }}</li>
+            </ul>
+            {% if location.extracted_tips %}
+                <h3 style="margin-top:16px;">Extracted Tips</h3>
+                <ul class="tips-list">
+                    {% for key, value in location.extracted_tips.items %}
+                        <li><span class="label">{{ key|title }}:</span> {{ value }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </section>
+
+        <section class="section">
+            <h2>Map Section</h2>
+            {% if location.latitude and location.longitude %}
+                <p class="meta">Location pin: {{ location.latitude }}, {{ location.longitude }}</p>
+                <a
+                    class="map-link"
+                    href="https://www.google.com/maps/search/?api=1&query={{ location.latitude }},{{ location.longitude }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Open this location in Google Maps
+                </a>
+            {% else %}
+                <p class="meta">Map coordinates are not available yet.</p>
+            {% endif %}
+        </section>
+
+        <section class="section">
+            <h2>Community Edits</h2>
+            {% if revisions %}
+                <ul class="revisions-list">
+                    {% for revision in revisions %}
+                        <li>
+                            <div><span class="label">Editor:</span> {{ revision.edited_by }}</div>
+                            <div><span class="label">When:</span> {{ revision.created_at }}</div>
+                            <div><span class="label">Change:</span> {{ revision.comment }}</div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="meta">No community edits yet.</p>
+            {% endif %}
+        </section>
+
+        <section class="section">
+            <h2>Community Comments</h2>
+            {% if community_comments %}
+                <ul class="comments-list">
+                    {% for comment in community_comments %}
+                        <li>
+                            <div>{{ comment.text }}</div>
+                            <div class="meta">
+                                By @{{ comment.author_handle }} | Likes: {{ comment.likes }} | Age: {{ comment.age }} | Reel: {{ comment.reel_short_code }}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="meta">No community comments were extracted from reels yet.</p>
+            {% endif %}
+        </section>
+
+        <section class="section">
+            <h2>Source Reels</h2>
+            <div class="reel-grid">
+                {% for reel in reels %}
+                    <article class="reel-card">
+                        <a href="{{ reel.original_url }}" target="_blank" rel="noopener noreferrer">
+                            {% if reel.thumbnail_url %}
+                                <img src="{{ reel.thumbnail_url }}" alt="Reel thumbnail for {{ location.name }}">
+                            {% endif %}
+                            <p>@{{ reel.author_handle|default:"unknown" }}</p>
+                        </a>
+                        {% if reel.ai_summary %}
+                            <p class="meta">{{ reel.ai_summary }}</p>
+                        {% endif %}
+                    </article>
+                {% empty %}
+                    <p class="meta">No reels linked to this location yet.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>Chatbot</h2>
+            <p class="meta">Need help with trip planning? Open ReelScout assistant from the main page.</p>
+            <a class="chatbot-link" href="/">Go to Chatbot</a>
+        </section>
     </div>
 </body>
 </html>

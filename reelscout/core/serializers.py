@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Location, ScrapedReel
+from .models import Location, ScrapedReel, LocationRevision
 
 class ScrapedReelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,8 +11,14 @@ class ScrapedReelSerializer(serializers.ModelSerializer):
             'comments_dump', 'ai_summary'
         ]
 
+class LocationRevisionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LocationRevision
+        fields = ['id', 'edited_by', 'comment', 'created_at']
+
 class LocationSerializer(serializers.ModelSerializer):
     reels = ScrapedReelSerializer(many=True, read_only=True)
+    revisions = LocationRevisionSerializer(many=True, read_only=True)
     
     class Meta:
         model = Location
@@ -20,5 +26,5 @@ class LocationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'slug', 'category', 'description', 
             'how_to_reach', 'best_time_to_visit', 'latitude', 
-            'longitude', 'extracted_tips', 'reels'
+            'longitude', 'extracted_tips', 'reels', 'revisions'
         ]

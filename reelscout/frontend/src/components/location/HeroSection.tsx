@@ -1,101 +1,49 @@
-import { MapPin, Gem, Share2, Heart, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { LocationData } from '@/types/location';
-import heroImage from '@/assets/hero-location.jpg';
+import { MapPin, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import heroImage from "@/assets/hero-location.jpg";
 
-interface HeroSectionProps {
-  location: LocationData;
-}
-
-export const HeroSection = ({ location }: HeroSectionProps) => {
-  const scrollToContent = () => {
-    document.getElementById('content')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+const HeroSection = () => {
   return (
-    <section className="relative h-screen min-h-[600px] w-full overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0">
-        <img
-          src={heroImage}
-          alt={location.name}
-          className="h-full w-full object-cover"
-        />
-        <div className="hero-gradient absolute inset-0" />
-      </div>
-
-      {/* Content Overlay */}
-      <div className="relative z-10 flex h-full flex-col justify-between px-6 py-8 md:px-12 lg:px-24">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-              <Gem className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-serif text-xl font-semibold text-primary-foreground">
-              ReelScout
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="rounded-full bg-primary-foreground/10 backdrop-blur-sm hover:bg-primary-foreground/20 text-primary-foreground"
-            >
-              <Share2 className="h-5 w-5" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="rounded-full bg-primary-foreground/10 backdrop-blur-sm hover:bg-primary-foreground/20 text-primary-foreground"
-            >
-              <Heart className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="max-w-3xl">
-          <div className="mb-4 flex flex-wrap items-center gap-3 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-            <Badge className="bg-gold text-accent-foreground border-0 px-3 py-1">
-              <Gem className="mr-1.5 h-3 w-3" />
-              Hidden Gem Score: {location.hiddenGemScore}%
+    <section className="relative h-[70vh] min-h-[500px] w-full overflow-hidden">
+      <img
+        src={heroImage}
+        alt="Kiyomizu-dera Temple surrounded by mountains"
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div
+        className="absolute inset-0"
+        style={{ background: "linear-gradient(180deg, hsla(30, 10%, 8%, 0.05) 0%, hsla(30, 10%, 8%, 0.8) 100%)" }}
+      />
+      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 lg:p-16">
+        <div className="section-container">
+          <div className="flex flex-wrap gap-2 mb-4 opacity-0 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
+            <Badge className="bg-primary/90 text-primary-foreground border-none px-3 py-1 text-xs font-medium tracking-wide">
+              Temple
             </Badge>
-            <Badge variant="outline" className="border-primary-foreground/30 text-primary-foreground backdrop-blur-sm">
-              {location.category}
+            <Badge className="bg-accent/90 text-accent-foreground border-none px-3 py-1 text-xs font-medium tracking-wide">
+              Higashiyama District
+            </Badge>
+            <Badge variant="outline" className="border-muted-foreground/30 text-muted/90 px-3 py-1 text-xs backdrop-blur-sm">
+              <Star className="w-3 h-3 mr-1 fill-current" /> 4.8
             </Badge>
           </div>
-
-          <h1 className="mb-3 font-serif text-5xl font-bold text-primary-foreground md:text-6xl lg:text-7xl animate-fade-up" style={{ animationDelay: '0.2s' }}>
-            {location.name}
-          </h1>
-          
-          <p className="mb-6 font-serif text-xl text-primary-foreground/90 italic md:text-2xl animate-fade-up" style={{ animationDelay: '0.3s' }}>
-            "{location.tagline}"
-          </p>
-
-          <div className="flex items-center gap-2 text-primary-foreground/80 animate-fade-up" style={{ animationDelay: '0.4s' }}>
-            <MapPin className="h-5 w-5" />
-            <span className="text-lg">
-              {location.address}, {location.region}, {location.country}
-            </span>
-          </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="flex justify-center">
-          <button 
-            onClick={scrollToContent}
-            className="flex flex-col items-center gap-2 text-primary-foreground/70 transition-colors hover:text-primary-foreground animate-fade-up"
-            style={{ animationDelay: '0.5s' }}
+          <h1
+            className="font-serif text-4xl sm:text-5xl lg:text-7xl text-muted leading-[1.1] mb-3 opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "0.25s", color: "hsl(40, 20%, 95%)" }}
           >
-            <span className="text-sm font-medium">Explore</span>
-            <ChevronDown className="h-6 w-6 animate-bounce" />
-          </button>
+            Kiyomizu-dera
+          </h1>
+          <p
+            className="text-sm sm:text-base max-w-lg opacity-0 animate-fade-in-up"
+            style={{ animationDelay: "0.4s", color: "hsl(40, 15%, 75%)" }}
+          >
+            <MapPin className="inline w-4 h-4 mr-1 -mt-0.5" />
+            Kyoto, Japan · Discovered from 23 reels
+          </p>
         </div>
       </div>
     </section>
   );
 };
+
+export default HeroSection;

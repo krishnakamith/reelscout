@@ -10,10 +10,51 @@ from .serializers import LocationSerializer
 def home(request):
     return render(request, 'core/index.html')
 
+def _parse_ranked_comment(comment_text):
+    if not isinstance(comment_text, str):
+        return {"text": str(comment_text), "likes": 0, "age": "Unknown"}
+
+    match = re.match(r'^\[SCORE:\s*(\d+)\]\s*\(([^)]+)\)\s*(.*)$', comment_text.strip())
+    if not match:
+        return {"text": comment_text.strip(), "likes": 0, "age": "Unknown"}
+
+    return {
+        "likes": int(match.group(1)),
+        "age": match.group(2),
+        "text": match.group(3).strip(),
+    }
+
 def location_detail(request, slug):
     location = get_object_or_404(Location, slug=slug)
     reels = location.reels.all().order_by('-posted_at')
-    return render(request, 'core/location_detail.html', {'location': location, 'reels': reels})
+    revisions = location.revisions.all().order_by('-created_at')
+
+    community_comments = []
+    for reel in reels:
+        if not reel.comments_dump:
+            continue
+        for comment in reel.comments_dump:
+            parsed = _parse_ranked_comment(comment)
+            community_comments.append({
+                "text": parsed["text"],
+                "likes": parsed["likes"],
+                "age": parsed["age"],
+                "reel_short_code": reel.short_code,
+                "author_handle": reel.author_handle or "unknown",
+            })
+
+    community_comments.sort(key=lambda c: c["likes"], reverse=True)
+
+    return render(
+        request,
+        'core/location_detail.html',
+        {
+            'location': location,
+            'reels': reels,
+            'revisions': revisions,
+            'community_comments': community_comments,
+        },
+    )
 
 @api_view(['POST'])
 def search_reel(request):

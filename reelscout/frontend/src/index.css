@@ -1,37 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display:ital@0;1&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ReelScout Design System - Kerala Tropical Theme Merged with Lovable */
-
 @layer base {
   :root {
-    /* Core Backgrounds & Foregrounds */
-    --background: 45 30% 97%;
-    --foreground: 150 25% 15%;
-    --card: 45 25% 99%;
-    --card-foreground: 150 25% 15%;
-    --popover: 45 25% 99%;
-    --popover-foreground: 150 25% 15%;
+    /* --------------------------------------------------------
+       ORIGINAL REELSCOUT HOME PAGE TOKENS
+       -------------------------------------------------------- */
+    --background: 40 20% 97%;
+    --foreground: 30 10% 12%;
 
-    /* Brand Colors */
-    --primary: 155 45% 25%;
-    --primary-foreground: 45 30% 97%;
-    --secondary: 15 65% 55%;
-    --secondary-foreground: 45 30% 97%;
-    --muted: 150 15% 90%;
-    --muted-foreground: 150 20% 40%;
-    --accent: 175 50% 35%;
-    --accent-foreground: 45 30% 97%;
+    --card: 40 25% 95%;
+    --card-foreground: 30 10% 12%;
+
+    --popover: 40 20% 97%;
+    --popover-foreground: 30 10% 12%;
+
+    --primary: 32 95% 52%;
+    --primary-foreground: 40 20% 97%;
+
+    --secondary: 35 30% 90%;
+    --secondary-foreground: 30 10% 20%;
+
+    --muted: 35 15% 92%;
+    --muted-foreground: 30 8% 50%;
+
+    --accent: 160 40% 45%;
+    --accent-foreground: 40 20% 97%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 150 15% 85%;
-    --input: 150 15% 85%;
-    --ring: 155 45% 25%;
+
+    --border: 35 15% 85%;
+    --input: 35 15% 85%;
+    --ring: 32 95% 52%;
     --radius: 0.75rem;
 
+    --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    --shadow-card-hover: 0 12px 30px -4px rgba(0, 0, 0, 0.1);
+    --glow-primary: 0 0 30px hsla(32, 95%, 52%, 0.3);
+    --glow-accent: 0 0 30px hsla(160, 40%, 45%, 0.3);
+
+    /* --------------------------------------------------------
+       NEW KERALA & LOVABLE COMPONENT TOKENS (APPENDED)
+       -------------------------------------------------------- */
     /* Custom ReelScout tokens */
     --kerala-green: 155 45% 25%;
     --kerala-green-light: 155 35% 45%;
@@ -73,28 +88,7 @@
   }
 
   .dark {
-    /* Core Backgrounds & Foregrounds */
-    --background: 150 20% 8%;
-    --foreground: 45 30% 95%;
-    --card: 150 18% 12%;
-    --card-foreground: 45 30% 95%;
-    --popover: 150 18% 12%;
-    --popover-foreground: 45 30% 95%;
-
-    /* Brand Colors */
-    --primary: 155 40% 50%;
-    --primary-foreground: 150 20% 8%;
-    --secondary: 15 55% 50%;
-    --secondary-foreground: 45 30% 97%;
-    --muted: 150 15% 20%;
-    --muted-foreground: 150 15% 65%;
-    --accent: 175 45% 40%;
-    --accent-foreground: 45 30% 97%;
-    --destructive: 0 62.8% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 150 15% 20%;
-    --input: 150 15% 20%;
-    --ring: 155 40% 50%;
+    /* Existing dark mode configurations (if any) would sit here */
 
     /* Lovable Custom Component Tokens (Dark) */
     --terracotta: 16 70% 60%;
@@ -116,25 +110,77 @@
     --sidebar-border: 150 15% 18%;
     --sidebar-ring: 155 40% 50%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', sans-serif;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
+    /* We avoid setting font-family strictly to Inter here so your existing Home page text won't break. */
   }
 }
 
 @layer components {
-  /* Lovable Components */
+  /* --------------------------------------------------------
+     ORIGINAL COMPONENTS (Kept intact)
+     -------------------------------------------------------- */
+  .section-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .bento-card {
+    @apply bg-card rounded-2xl p-6 transition-all duration-300;
+    box-shadow: var(--shadow-card);
+  }
+
+  .bento-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+
+  .glow-cta {
+    box-shadow: var(--glow-primary);
+  }
+
+  .glow-accent {
+    box-shadow: var(--glow-accent);
+  }
+
+  .masonry-item {
+    @apply overflow-hidden rounded-xl;
+  }
+
+  .masonry-item img {
+    @apply transition-transform duration-500 ease-out;
+  }
+
+  .masonry-item:hover img {
+    transform: scale(1.05);
+  }
+
+  .comment-card {
+    @apply bg-card rounded-2xl p-5 border border-border transition-all duration-200;
+    box-shadow: var(--shadow-card);
+  }
+
+  .comment-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .nearby-card {
+    @apply bg-card rounded-xl overflow-hidden flex-shrink-0 w-56 transition-all duration-300;
+    box-shadow: var(--shadow-card);
+  }
+
+  .nearby-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-3px);
+  }
+
+  /* --------------------------------------------------------
+     NEW LOVABLE COMPONENTS (Appended)
+     -------------------------------------------------------- */
   .glass-card {
     @apply backdrop-blur-md bg-card/80 border border-border/50;
     box-shadow: var(--shadow-md);
@@ -161,7 +207,9 @@
 }
 
 @layer utilities {
-  /* User Utilities */
+  /* --------------------------------------------------------
+     NEW LOVABLE & KERALA UTILITIES
+     -------------------------------------------------------- */
   .text-gradient-hero {
     background: var(--gradient-hero);
     -webkit-background-clip: text;
