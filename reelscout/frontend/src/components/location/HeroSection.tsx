@@ -1,15 +1,17 @@
-import { MapPin, Star } from "lucide-react";
+﻿import { MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import heroImage from "@/assets/hero-location.jpg";
 
 interface HeroSectionProps {
   locationName?: string;
+  district?: string;
   locationText?: string;
   reelCount?: number;
 }
 
 const HeroSection = ({
   locationName = "Kiyomizu-dera",
+  district = "Higashiyama District",
   locationText = "Kyoto, Japan",
   reelCount = 23,
 }: HeroSectionProps) => {
@@ -31,10 +33,7 @@ const HeroSection = ({
               Temple
             </Badge>
             <Badge className="bg-accent/90 text-accent-foreground border-none px-3 py-1 text-xs font-medium tracking-wide">
-              Higashiyama District
-            </Badge>
-            <Badge variant="outline" className="border-muted-foreground/30 text-muted/90 px-3 py-1 text-xs backdrop-blur-sm">
-              <Star className="w-3 h-3 mr-1 fill-current" /> 4.8
+              {district}
             </Badge>
           </div>
           <h1
@@ -57,3 +56,4 @@ const HeroSection = ({
 };
 
 export default HeroSection;
+

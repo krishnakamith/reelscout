@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import HeroSection from "@/components/location/HeroSection";
 import BentoInsights from "@/components/location/BentoInsights";
@@ -18,6 +18,7 @@ interface LocationDetailResponse {
 const LocationDetail = () => {
   const { slug } = useParams();
   const [locationName, setLocationName] = useState("Kiyomizu-dera");
+  const [district, setDistrict] = useState("Higashiyama District");
   const [locationText, setLocationText] = useState("Kyoto, Japan");
   const [reelCount, setReelCount] = useState(23);
 
@@ -39,11 +40,14 @@ const LocationDetail = () => {
         }
 
         const area = data?.specific_area?.trim();
-        const district = data?.district?.trim();
-        const fullLocation = [area, district].filter(Boolean).join(", ");
+        const districtName = data?.district?.trim();
 
-        if (fullLocation) {
-          setLocationText(fullLocation);
+        if (districtName) {
+          setDistrict(districtName);
+        }
+
+        if (area) {
+          setLocationText(area);
         } else if (data?.name) {
           setLocationText(data.name);
         }
@@ -63,6 +67,7 @@ const LocationDetail = () => {
     <main className="min-h-screen bg-background">
       <HeroSection
         locationName={locationName}
+        district={district}
         locationText={locationText}
         reelCount={reelCount}
       />
