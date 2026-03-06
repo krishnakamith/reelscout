@@ -2,7 +2,17 @@ import { MapPin, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import heroImage from "@/assets/hero-location.jpg";
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  locationName?: string;
+  locationText?: string;
+  reelCount?: number;
+}
+
+const HeroSection = ({
+  locationName = "Kiyomizu-dera",
+  locationText = "Kyoto, Japan",
+  reelCount = 23,
+}: HeroSectionProps) => {
   return (
     <section className="relative h-[70vh] min-h-[500px] w-full overflow-hidden">
       <img
@@ -31,14 +41,14 @@ const HeroSection = () => {
             className="font-serif text-4xl sm:text-5xl lg:text-7xl text-muted leading-[1.1] mb-3 opacity-0 animate-fade-in-up"
             style={{ animationDelay: "0.25s", color: "hsl(40, 20%, 95%)" }}
           >
-            Kiyomizu-dera
+            {locationName}
           </h1>
           <p
             className="text-sm sm:text-base max-w-lg opacity-0 animate-fade-in-up"
             style={{ animationDelay: "0.4s", color: "hsl(40, 15%, 75%)" }}
           >
             <MapPin className="inline w-4 h-4 mr-1 -mt-0.5" />
-            Kyoto, Japan · Discovered from 23 reels
+            {locationText} · Discovered from {reelCount} reels
           </p>
         </div>
       </div>

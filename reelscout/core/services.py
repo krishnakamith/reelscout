@@ -20,20 +20,20 @@ def get_or_process_reel(reel_url):
 
     existing_reel = ScrapedReel.objects.filter(short_code=short_code).first()
     # Return existing reel if it has already been processed
-    if existing_reel and existing_reel.is_processed: 
+    if existing_reel and existing_reel.is_processed:
         return existing_reel
 
     # 2. SCRAPE (Video + Metadata)
     print(f"🚀 Scraping {short_code}...")
     client = ApifyClient(settings.APIFY_TOKEN)
-    
+
     run_input = {
         "username": [reel_url],
-        "includeDownloadedVideo": False, 
+        "includeDownloadedVideo": False,
         "includeTranscript": False,
-        "commentsLimit": 0 
+        "commentsLimit": 0
     }
-    
+
     run = client.actor("apify/instagram-reel-scraper").call(run_input=run_input)
     if not run: raise Exception("Scraper failed")
 
@@ -68,10 +68,10 @@ def get_or_process_reel(reel_url):
     if cdn_url:
         res = requests.get(cdn_url, timeout=30)
         reel.video_file.save(f"{short_code}.mp4", ContentFile(res.content), save=True)
-        
+
         print("⚙️ Processing Media...")
         engine = VideoEngine(reel.video_file.path, short_code)
-        
+
         # A. Extract Frames
         frame_data = engine.extract_frames(interval=2)
         for f in frame_data:
@@ -86,46 +86,61 @@ def get_or_process_reel(reel_url):
         # 5. CALL GEMINI & LINK TO LOCATION
         print("🧠 Calling Gemini (Transcript + Vision)...")
         ai_service = GeminiService()
-        
+
         full_audio_path = reel.audio_file.path if reel.audio_file else None
         ai_result_json = ai_service.analyze_reel(reel, audio_path=full_audio_path)
-        
+
         if ai_result_json:
             try:
                 data = json.loads(ai_result_json)
                 loc_name = data.get("location")
-                
-                # reelscout/core/services.py
+                district = data.get("district")
+                specific_area = data.get("specific_area")
 
                 tips = data.get("extracted_tips", {})
-                
+
                 # Check for existing location or create a new one
                 if loc_name:
                     location_obj, loc_created = Location.objects.get_or_create(
                         name=loc_name,
                         defaults={
                             'category': data.get('category', 'Uncategorized'),
+                            'district': district,
+                            'specific_area': specific_area,
                             'latitude': data.get('latitude'),
                             'longitude': data.get('longitude'),
                             'extracted_tips': tips
                         }
                     )
-                    
-                    # Merge new tips into an existing location's wiki
-                    if not loc_created and tips:
+
+                    # Merge new tips and location metadata into an existing location
+                    if not loc_created:
+                        has_updates = False
                         current_tips = location_obj.extracted_tips or {}
-                        current_tips.update(tips)  # This safely merges the new dictionary into the old one
-                        location_obj.extracted_tips = current_tips
-                        location_obj.save()
-                        
+                        if tips:
+                            current_tips.update(tips)
+                            location_obj.extracted_tips = current_tips
+                            has_updates = True
+
+                        if district and not location_obj.district:
+                            location_obj.district = district
+                            has_updates = True
+
+                        if specific_area and not location_obj.specific_area:
+                            location_obj.specific_area = specific_area
+                            has_updates = True
+
+                        if has_updates:
+                            location_obj.save()
+
                     reel.location = location_obj
-                
+
                 reel.transcript_text = data.get("transcript")
                 reel.ai_location_name = loc_name
                 reel.ai_summary = data.get("summary")
                 reel.is_processed = True
                 reel.save()
-                
+
                 print(f"✅ TRANSCRIPT: {reel.transcript_text[:50]}...")
                 print(f"📍 LINKED TO LOCATION: {reel.location.name if reel.location else 'None'}")
             except Exception as e:
