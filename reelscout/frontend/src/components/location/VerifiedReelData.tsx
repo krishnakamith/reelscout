@@ -1,5 +1,4 @@
 import { CheckCircle, Plus } from "lucide-react";
-import React from "react";
 
 interface ReelFact {
   id: string;
@@ -11,6 +10,7 @@ interface ReelFact {
 
 interface VerifiedReelDataProps {
   facts?: ReelFact[];
+  reelCount?: number;
 }
 
 const defaultFacts: ReelFact[] = [
@@ -24,7 +24,7 @@ const defaultFacts: ReelFact[] = [
   { id: "8", category: "Restrooms", fact: "Clean facilities near the main entrance and one midway up the trail.", verifiedCount: 6 },
 ];
 
-const VerifiedReelData = ({ facts = defaultFacts }: VerifiedReelDataProps) => {
+const VerifiedReelData = ({ facts = defaultFacts, reelCount }: VerifiedReelDataProps) => {
   return (
     <section className="py-16 sm:py-20">
       <div className="section-container">
@@ -35,7 +35,7 @@ const VerifiedReelData = ({ facts = defaultFacts }: VerifiedReelDataProps) => {
           </h2>
         </div>
         <p className="text-muted-foreground mb-10 text-sm">
-          Documented facts extracted and cross-verified from {facts.length} community reels
+          Documented facts extracted and cross-verified from {reelCount ?? facts.length} community reels
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

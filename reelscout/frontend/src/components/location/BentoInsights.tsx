@@ -10,6 +10,9 @@ interface Insight {
 
 interface BentoInsightsProps {
   insights?: Insight[];
+  extractedTips?: Record<string, string>;
+  description?: string;
+  bestTimeToVisit?: string;
 }
 
 const defaultInsights: Insight[] = [
@@ -57,7 +60,61 @@ const defaultInsights: Insight[] = [
   },
 ];
 
-const BentoInsights = ({ insights = defaultInsights }: BentoInsightsProps) => {
+const fallbackIcons: React.ElementType[] = [
+  Eye,
+  CircleDollarSign,
+  Footprints,
+  Sparkles,
+  Clock,
+  Calendar,
+];
+
+function prettifyLabel(key: string) {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const BentoInsights = ({
+  insights,
+  extractedTips,
+  description,
+  bestTimeToVisit,
+}: BentoInsightsProps) => {
+  const derivedInsights: Insight[] = [];
+
+  if (description?.trim()) {
+    derivedInsights.push({
+      icon: Eye,
+      label: "Overview",
+      value: description.trim(),
+      span: "col-span-1 sm:col-span-2",
+    });
+  }
+
+  if (bestTimeToVisit?.trim()) {
+    derivedInsights.push({
+      icon: Calendar,
+      label: "Best Time",
+      value: bestTimeToVisit.trim(),
+      span: "col-span-1",
+    });
+  }
+
+  if (extractedTips) {
+    Object.entries(extractedTips)
+      .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+      .slice(0, 6)
+      .forEach(([key, value], index) => {
+        derivedInsights.push({
+          icon: fallbackIcons[index % fallbackIcons.length],
+          label: prettifyLabel(key),
+          value: value.trim(),
+          span: index % 3 === 0 ? "col-span-1 sm:col-span-2" : "col-span-1",
+        });
+      });
+  }
+
+  const items = insights ?? (derivedInsights.length > 0 ? derivedInsights.slice(0, 6) : defaultInsights);
+
   return (
     <section className="py-16 sm:py-20">
       <div className="section-container">
@@ -68,7 +125,7 @@ const BentoInsights = ({ insights = defaultInsights }: BentoInsightsProps) => {
           Curated from community reels and AI analysis
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {insights.map((insight, i) => (
+          {items.map((insight, i) => (
             <div
               key={i}
               className={`bento-card ${insight.span || "col-span-1"} opacity-0 animate-fade-in-up`}
