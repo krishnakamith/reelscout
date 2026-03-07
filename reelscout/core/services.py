@@ -1,11 +1,12 @@
 import re
 import requests
 import json
+import time
 from datetime import datetime
 from django.conf import settings
 from django.core.files.base import ContentFile
 from apify_client import ApifyClient
-from .models import ScrapedReel, ReelFrame, Location  # Added Location import
+from .models import ScrapedReel, ReelFrame, Location
 from .video_engine import VideoEngine
 from .gemini_service import GeminiService
 
@@ -32,7 +33,6 @@ def get_or_process_reel(reel_url):
     if not short_code: raise ValueError("Invalid Instagram URL")
 
     existing_reel = ScrapedReel.objects.filter(short_code=short_code).first()
-    # Return existing reel if it has already been processed
     if existing_reel and existing_reel.is_processed:
         return existing_reel
 
@@ -96,8 +96,20 @@ def get_or_process_reel(reel_url):
             reel.audio_file.name = audio_path
             reel.save()
 
+        # 👉 THE WAITING ROOM: Pause to let the browser script save comments!
+        print("⏳ Waiting for comments from the browser script...")
+        max_attempts = 15 # Wait up to 30 seconds (15 attempts * 2 seconds)
+        for attempt in range(max_attempts):
+            reel.refresh_from_db()
+            if reel.comments_dump and len(reel.comments_dump) > 0:
+                print("✅ Comments received! Proceeding to AI analysis.")
+                break
+            time.sleep(2)
+        else:
+            print("⚠️ No comments received within the timeout limit. Proceeding without comments.")
+
         # 5. CALL GEMINI & LINK TO LOCATION
-        print("🧠 Calling Gemini (Transcript + Vision)...")
+        print("🧠 Calling Gemini (Transcript + Vision + Comments)...")
         ai_service = GeminiService()
 
         full_audio_path = reel.audio_file.path if reel.audio_file else None
@@ -112,7 +124,6 @@ def get_or_process_reel(reel_url):
                 general_info = _as_dict(data.get("general_info"))
                 known_facts = _as_dict(data.get("known_facts"))
 
-                # Check for existing location or create a new one.
                 if loc_name:
                     location_obj, loc_created = Location.objects.get_or_create(
                         name=loc_name,
@@ -127,7 +138,6 @@ def get_or_process_reel(reel_url):
                         }
                     )
 
-                    # Merge dynamic dictionaries and fill any missing metadata.
                     if not loc_created:
                         has_updates = False
 
