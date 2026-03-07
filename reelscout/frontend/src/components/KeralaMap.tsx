@@ -19,6 +19,10 @@ export function KeralaMap() {
   const navigate = useNavigate();
   const [locations, setLocations] = useState<LocationData[]>([]);
   const [geoData, setGeoData] = useState(null);
+  const keralaBounds: [[number, number], [number, number]] = [
+    [8.30, 75.05],   // south-west Kerala (tighter)
+    [12.70, 77.15],  // north-east Kerala (tighter)
+  ];
 
   useEffect(() => {
     // 1. Fetch live locations from your Django backend
@@ -56,10 +60,15 @@ export function KeralaMap() {
 
   return (
     <div className="relative w-full max-w-6xl mx-auto h-[90vh] min-h-[800px] rounded-2xl overflow-hidden shadow-2xl border-4 border-muted">
-  <MapContainer
-        center={[10.8505, 76.2711]} // Geographic center of Kerala
-        zoom={7}
+      <MapContainer
+        bounds={keralaBounds}
+        boundsOptions={{ padding: [8, 8] }}
         scrollWheelZoom={false}
+        minZoom={7.5}
+        zoomSnap={0.25}
+        zoomDelta={0.25}
+        maxBounds={keralaBounds}
+        maxBoundsViscosity={1.0}
         className="w-full h-full z-0"
       >
         {/* A clean, minimalist basemap to make your pins and borders pop */}
