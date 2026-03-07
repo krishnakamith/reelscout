@@ -70,6 +70,7 @@ def search_reel(request):
                 "short_code": reel.short_code,
                 "location_name": reel.location.name if reel.location else "Unknown",
                 "location_slug": reel.location.slug if reel.location else None,
+                "category": reel.location.category if reel.location else None,
                 "comments_count": len(reel.comments_dump or []),
             }
         })

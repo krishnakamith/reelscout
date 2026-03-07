@@ -14,6 +14,11 @@ class Location(models.Model):
     known_facts = models.JSONField(default=dict, blank=True, help_text="Dynamic objective data points")
 
     # Map Data
+    nearby_places = models.JSONField(
+        default=list, 
+        blank=True, 
+        help_text="List of nearby places: [{'name': '...', 'type': '...', 'distance': '...'}]"
+    )
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 

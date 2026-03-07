@@ -4,6 +4,7 @@ import heroImage from "@/assets/hero-location.jpg";
 
 interface HeroSectionProps {
   locationName?: string;
+  category?: string;
   district?: string;
   locationText?: string;
   reelCount?: number;
@@ -11,6 +12,7 @@ interface HeroSectionProps {
 
 const HeroSection = ({
   locationName = "Kiyomizu-dera",
+  category = "Temple",
   district = "Higashiyama District",
   locationText = "Kyoto, Japan",
   reelCount = 23,
@@ -30,7 +32,7 @@ const HeroSection = ({
         <div className="section-container">
           <div className="flex flex-wrap gap-2 mb-4 opacity-0 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
             <Badge className="bg-primary/90 text-primary-foreground border-none px-3 py-1 text-xs font-medium tracking-wide">
-              Temple
+              {category}
             </Badge>
             <Badge className="bg-accent/90 text-accent-foreground border-none px-3 py-1 text-xs font-medium tracking-wide">
               {district}

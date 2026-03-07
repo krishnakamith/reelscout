@@ -128,6 +128,7 @@ def get_or_process_reel(reel_url, prepared_comments=None):
             try:
                 data = json.loads(ai_result_json)
                 loc_name = data.get("location")
+                category = data.get("category")
                 district = data.get("district")
                 specific_area = data.get("specific_area")
                 general_info = _as_dict(data.get("general_info"))
@@ -158,6 +159,10 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                         merged_known_facts = _merge_dynamic_data(location_obj.known_facts, known_facts)
                         if merged_known_facts != (location_obj.known_facts or {}):
                             location_obj.known_facts = merged_known_facts
+                            has_updates = True
+
+                        if category and not location_obj.category:
+                            location_obj.category = category
                             has_updates = True
 
                         if district and not location_obj.district:

@@ -9,13 +9,23 @@ import VerifiedReelData from "@/components/location/VerifiedReelData";
 import ChatbotCTA from "@/components/location/ChatbotCTA";
 import { CircleDollarSign, Clock, Eye, Footprints, Sparkles } from "lucide-react";
 
+interface NearbyPlace {
+  name: string;
+  type: string;
+  distance: string;
+}
+
 interface LocationDetailResponse {
   name?: string;
+  category?: string;
   district?: string;
   specific_area?: string;
   general_info?: Record<string, string>;
   known_facts?: Record<string, string>;
   reels?: ReelItem[];
+  latitude?: string | null;
+  longitude?: string | null;
+  nearby_places?: NearbyPlace[];
 }
 
 interface ReelItem {
@@ -58,11 +68,17 @@ function normalizeFactText(text: string) {
 const LocationDetail = () => {
   const { slug } = useParams();
   const [locationName, setLocationName] = useState("Kiyomizu-dera");
+  const [category, setCategory] = useState("Temple");
   const [district, setDistrict] = useState("Higashiyama District");
   const [locationText, setLocationText] = useState("Kyoto, Japan");
   const [reelCount, setReelCount] = useState(23);
   const [insights, setInsights] = useState<InsightItem[] | undefined>(undefined);
   const [facts, setFacts] = useState<ReelFactItem[] | undefined>(undefined);
+  
+  // New state for map and surroundings
+  const [latitude, setLatitude] = useState<string | null>(null);
+  const [longitude, setLongitude] = useState<string | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -79,6 +95,9 @@ const LocationDetail = () => {
 
         if (data?.name) {
           setLocationName(data.name);
+        }
+        if (data?.category?.trim()) {
+          setCategory(data.category.trim());
         }
 
         const area = data?.specific_area?.trim();
@@ -97,6 +116,11 @@ const LocationDetail = () => {
         if (Array.isArray(data?.reels)) {
           setReelCount(data.reels.length);
         }
+
+        // Set new map data
+        if (data.latitude) setLatitude(data.latitude);
+        if (data.longitude) setLongitude(data.longitude);
+        if (data.nearby_places) setNearbyPlaces(data.nearby_places);
 
         const mappedInsights: InsightItem[] = [];
         if (data?.general_info) {
@@ -197,6 +221,7 @@ const LocationDetail = () => {
     <main className="min-h-screen bg-background">
       <HeroSection
         locationName={locationName}
+        category={category}
         district={district}
         locationText={locationText}
         reelCount={reelCount}
@@ -208,7 +233,12 @@ const LocationDetail = () => {
         facts={facts}
         reelCount={reelCount}
       />
-      <MapSurroundings />
+      <MapSurroundings 
+        locationSlug={slug}
+        latitude={latitude}
+        longitude={longitude}
+        initialPlaces={nearbyPlaces}
+      />
       <CommunityPulse />
       <FrameGallery />
       <ChatbotCTA />

@@ -22,9 +22,8 @@ class LocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
-        # Swapped old text fields for our new dynamic JSON fields!
         fields = [
             'id', 'name', 'slug', 'category', 'district', 'specific_area', 
             'general_info', 'known_facts', 'latitude', 'longitude', 
-            'reels', 'revisions'
+            'nearby_places', 'reels', 'revisions'
         ]

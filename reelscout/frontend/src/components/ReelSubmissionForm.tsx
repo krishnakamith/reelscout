@@ -145,7 +145,7 @@ export function ReelSubmissionForm() {
         }
 
         toast.success("Reel submitted successfully!", {
-          description: `Detected location: ${data.data.location_name}`,
+          description: `Detected location: ${data.data.location_name}${data?.data?.category ? ` (${data.data.category})` : ""}`,
         });
         const locationSlug =
           data?.data?.location_slug ||
