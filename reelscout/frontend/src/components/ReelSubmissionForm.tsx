@@ -182,7 +182,7 @@ export function ReelSubmissionForm() {
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Map
+            Back to Home
           </Button>
         </div>
       </header>

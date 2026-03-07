@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Plus, Sparkles, Film, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,50 @@ import heroImage from "@/assets/kerala-hero.jpg";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [locationsCount, setLocationsCount] = useState<number | null>(null);
+  const [reelsCount, setReelsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetch("/api/locations/")
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status}`);
+        return res.json();
+      })
+      .then((data: Array<{ id?: number; reels?: Array<{ short_code?: string }> }>) => {
+        if (!isMounted || !Array.isArray(data)) return;
+
+        const locationIds = new Set<number>();
+        const reelShortCodes = new Set<string>();
+
+        data.forEach((location) => {
+          if (typeof location?.id === "number") {
+            locationIds.add(location.id);
+          }
+
+          if (Array.isArray(location?.reels)) {
+            location.reels.forEach((reel) => {
+              if (typeof reel?.short_code === "string" && reel.short_code.trim()) {
+                reelShortCodes.add(reel.short_code);
+              }
+            });
+          }
+        });
+
+        setLocationsCount(locationIds.size);
+        setReelsCount(reelShortCodes.size);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setLocationsCount(0);
+        setReelsCount(0);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,11 +132,15 @@ const Index = () => {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-3 gap-8 max-w-2xl mx-auto text-center">
               <div>
-                <p className="font-display text-3xl md:text-4xl font-bold text-gradient-hero">10+</p>
+                <p className="font-display text-3xl md:text-4xl font-bold text-gradient-hero">
+                  {locationsCount === null ? "..." : locationsCount.toLocaleString()}
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">Locations Mapped</p>
               </div>
               <div>
-                <p className="font-display text-3xl md:text-4xl font-bold text-gradient-hero">800+</p>
+                <p className="font-display text-3xl md:text-4xl font-bold text-gradient-hero">
+                  {reelsCount === null ? "..." : reelsCount.toLocaleString()}
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">Reels Analyzed</p>
               </div>
               <div>
@@ -183,7 +232,7 @@ const Index = () => {
       <footer className="py-8 border-t border-border">
         <div className="container mx-auto px-4 text-center text-muted-foreground">
           <p className="text-sm">
-            © 2025 ReelScout — Finding Hidden Gems in Kerala
+            © 2026 ReelScout — Finding Hidden Gems in Kerala
           </p>
         </div>
       </footer>
@@ -195,3 +244,4 @@ const Index = () => {
 };
 
 export default Index;
+

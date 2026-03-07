@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import HeroSection from "@/components/location/HeroSection";
 import BentoInsights from "@/components/location/BentoInsights";
 import MapSurroundings from "@/components/location/MapSurroundings";
@@ -7,7 +7,8 @@ import CommunityPulse from "@/components/location/CommunityPulse";
 import FrameGallery from "@/components/location/FrameGallery";
 import VerifiedReelData from "@/components/location/VerifiedReelData";
 import ChatbotCTA from "@/components/location/ChatbotCTA";
-import { CircleDollarSign, Clock, Eye, Footprints, Sparkles } from "lucide-react";
+import { ArrowLeft, CircleDollarSign, Clock, Eye, Footprints, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface NearbyPlace {
   name: string;
@@ -80,6 +81,7 @@ function normalizeFactText(text: string) {
 }
 
 const LocationDetail = () => {
+  const navigate = useNavigate();
   const { slug } = useParams();
   const [locationName, setLocationName] = useState("Kiyomizu-dera");
   const [category, setCategory] = useState("Temple");
@@ -343,6 +345,18 @@ const LocationDetail = () => {
 
   return (
     <main className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 glass border-b border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Map
+          </Button>
+        </div>
+      </header>
       <HeroSection
         locationName={locationName}
         category={category}
