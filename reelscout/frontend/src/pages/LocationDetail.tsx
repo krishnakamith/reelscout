@@ -34,6 +34,11 @@ interface ReelItem {
   ai_summary?: string;
   comments_dump?: string[];
   author_handle?: string;
+  selected_frame_timestamps?: number[];
+  frames?: Array<{
+    timestamp: number;
+    image_url?: string | null;
+  }>;
 }
 
 interface RevisionItem {
@@ -91,6 +96,9 @@ const LocationDetail = () => {
   const [communityEntries, setCommunityEntries] = useState<
     Array<{ id: string; user: string; text: string; time: string; likes?: number; tag: string }>
   >([]);
+  const [galleryFrames, setGalleryFrames] = useState<
+    Array<{ src: string; alt: string; reelShortCode?: string; timestamp?: number }>
+  >([]);
 
   const formatRelativeTime = (isoTime: string) => {
     const date = new Date(isoTime);
@@ -115,6 +123,7 @@ const LocationDetail = () => {
 
     let isMounted = true;
     setCommunityEntries([]);
+    setGalleryFrames([]);
 
     fetch(`/api/locations/${encodeURIComponent(slug)}/`)
       .then((response) => {
@@ -188,6 +197,53 @@ const LocationDetail = () => {
 
         if (entries.length > 0) {
           setCommunityEntries(entries.slice(0, 20));
+        }
+
+        if (Array.isArray(data?.reels)) {
+          const selectedGalleryFrames: Array<{ src: string; alt: string; reelShortCode?: string; timestamp?: number }> = [];
+
+          data.reels.forEach((reel, reelIndex) => {
+            const reelFrames = Array.isArray(reel.frames) ? reel.frames : [];
+            if (reelFrames.length === 0) return;
+
+            const selectedSeconds = Array.isArray(reel.selected_frame_timestamps)
+              ? reel.selected_frame_timestamps.slice(0, 3)
+              : [];
+
+            const chooseNearestFrame = (target: number) => {
+              let nearest = reelFrames[0];
+              let bestDistance = Math.abs((nearest?.timestamp ?? 0) - target);
+              for (const frame of reelFrames) {
+                const distance = Math.abs((frame?.timestamp ?? 0) - target);
+                if (distance < bestDistance) {
+                  bestDistance = distance;
+                  nearest = frame;
+                }
+              }
+              return nearest;
+            };
+
+            const picked = selectedSeconds.length > 0
+              ? selectedSeconds.map((second) => chooseNearestFrame(second))
+              : reelFrames.slice(0, 2);
+
+            const perReelUnique = new Set<string>();
+            picked.forEach((frame) => {
+              const imageUrl = frame?.image_url;
+              if (!imageUrl || perReelUnique.has(imageUrl)) return;
+              perReelUnique.add(imageUrl);
+              selectedGalleryFrames.push({
+                src: imageUrl,
+                alt: `Selected frame from reel ${reel.short_code ?? reelIndex + 1}`,
+                reelShortCode: reel.short_code,
+                timestamp: typeof frame.timestamp === "number" ? frame.timestamp : undefined,
+              });
+            });
+          });
+
+          if (selectedGalleryFrames.length > 0) {
+            setGalleryFrames(selectedGalleryFrames.slice(0, 18));
+          }
         }
 
         const mappedInsights: InsightItem[] = [];
@@ -308,7 +364,7 @@ const LocationDetail = () => {
         initialPlaces={nearbyPlaces}
       />
       <CommunityPulse locationSlug={slug} initialEntries={communityEntries} />
-      <FrameGallery />
+      <FrameGallery frames={galleryFrames} />
       <ChatbotCTA />
     </main>
   );

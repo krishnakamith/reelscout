@@ -50,6 +50,29 @@ def _infer_category(location_name):
             return category
     return None
 
+def _sanitize_selected_frame_timestamps(raw_value):
+    if not isinstance(raw_value, list):
+        return []
+
+    cleaned = []
+    for item in raw_value:
+        try:
+            value = round(float(item), 2)
+        except (TypeError, ValueError):
+            continue
+        if value >= 0:
+            cleaned.append(value)
+
+    unique = []
+    seen = set()
+    for value in cleaned:
+        if value in seen:
+            continue
+        seen.add(value)
+        unique.append(value)
+
+    return unique[:4]
+
 def get_or_process_reel(reel_url, prepared_comments=None):
     # 1. CHECK REEL CACHE
     short_code = extract_shortcode(reel_url)
@@ -115,6 +138,7 @@ def get_or_process_reel(reel_url, prepared_comments=None):
         engine = VideoEngine(reel.video_file.path, short_code)
 
         # A. Extract Frames
+        reel.frames.all().delete()
         frame_data = engine.extract_frames(interval=2)
         for f in frame_data:
             ReelFrame.objects.create(reel=reel, image=f['path'], timestamp=f['time'])
@@ -219,11 +243,18 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
                 transcript_text = data.get("transcript")
                 summary_text = data.get("summary")
+                selected_frame_timestamps = _sanitize_selected_frame_timestamps(
+                    data.get("selected_frame_timestamps")
+                )
 
                 # Prevent transcript from being reused as summary.
                 if isinstance(summary_text, str) and isinstance(transcript_text, str):
                     if summary_text.strip() == transcript_text.strip():
                         summary_text = None
+
+                if not selected_frame_timestamps:
+                    fallback_frames = list(reel.frames.order_by('timestamp').values_list('timestamp', flat=True)[:3])
+                    selected_frame_timestamps = [round(float(value), 2) for value in fallback_frames]
 
                 reel.transcript_text = transcript_text
                 reel.ai_location_name = loc_name
@@ -232,6 +263,7 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                     or reel.raw_caption
                     or reel.ai_summary
                 )
+                reel.selected_frame_timestamps = selected_frame_timestamps
                 reel.is_processed = True
                 reel.save()
 

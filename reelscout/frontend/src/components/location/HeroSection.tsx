@@ -1,6 +1,13 @@
 ﻿import { MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import heroImage from "@/assets/hero-location.jpg";
+import heroImage1 from "@/assets/hero-location (1).jpg";
+import heroImage2 from "@/assets/hero-location (2).jpg";
+import heroImage3 from "@/assets/hero-location (3).jpg";
+import heroImage4 from "@/assets/hero-location (4).jpg";
+import heroImage5 from "@/assets/hero-location (5).jpg";
+import heroImage6 from "@/assets/hero-location (6).jpg";
+import heroImage7 from "@/assets/hero-location (7).jpg";
 
 interface HeroSectionProps {
   locationName?: string;
@@ -10,6 +17,27 @@ interface HeroSectionProps {
   reelCount?: number;
 }
 
+function pickHeroImage(category?: string) {
+  const normalized = String(category || "").trim().toLowerCase();
+
+  const categoryImageMap: Record<string, string> = {
+    temple: heroImage1,
+    church: heroImage2,
+    mosque: heroImage2,
+    waterfall: heroImage3,
+    beach: heroImage4,
+    fort: heroImage5,
+    cave: heroImage5,
+    "hill station": heroImage6,
+    viewpoint: heroImage6,
+    lake: heroImage7,
+    dam: heroImage7,
+    park: heroImage,
+  };
+
+  return categoryImageMap[normalized] || heroImage;
+}
+
 const HeroSection = ({
   locationName = "Kiyomizu-dera",
   category = "Temple",
@@ -17,11 +45,13 @@ const HeroSection = ({
   locationText = "Kyoto, Japan",
   reelCount = 23,
 }: HeroSectionProps) => {
+  const heroImageSrc = pickHeroImage(category);
+
   return (
     <section className="relative h-[70vh] min-h-[500px] w-full overflow-hidden">
       <img
-        src={heroImage}
-        alt="Kiyomizu-dera Temple surrounded by mountains"
+        src={heroImageSrc}
+        alt="Location hero"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div
@@ -58,4 +88,3 @@ const HeroSection = ({
 };
 
 export default HeroSection;
-

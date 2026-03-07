@@ -46,6 +46,7 @@ class GeminiService:
         all_frames = list(reel.frames.all())
         step = len(all_frames) // 6 if len(all_frames) > 6 else 1
         selected_frames = all_frames[::step][:6]
+        selected_frame_timestamps = [round(float(frame.timestamp), 2) for frame in selected_frames]
 
         image_objects = []
         for frame in selected_frames:
@@ -78,6 +79,7 @@ class GeminiService:
         - Audio: Listen for spoken Malayalam words. Ignore music.
         - Caption: "{reel.raw_caption}"
         - Comments from viewers: "{comments_text}"
+        - Candidate frame timestamps (seconds): {selected_frame_timestamps}
 
         TASK A: Transcribe the spoken Malayalam exactly. If NO speech, write "Music only".
         TASK B: Identify the location and provide its geographic latitude and longitude coordinates.
@@ -95,6 +97,10 @@ class GeminiService:
         
         CRITICAL: If a detail is not mentioned in the audio, caption, or comments, DO NOT invent a key for it. 
 
+        TASK D: Pick only the most relevant key visual moments for gallery display.
+        Choose 2 to 4 timestamps from the provided candidate frame timestamps list only.
+        Return them in "selected_frame_timestamps" as numbers.
+
         Format strictly as JSON:
         {{
             "transcript": "Your transcript here...",
@@ -111,7 +117,8 @@ class GeminiService:
             "known_facts": {{
                 "your_factual_key_here": "short fact",
                 "another_factual_key": "short fact"
-            }}
+            }},
+            "selected_frame_timestamps": [2.0, 8.0, 14.0]
         }}
         """
 

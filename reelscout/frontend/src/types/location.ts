@@ -22,6 +22,11 @@ export interface ReelData {
   like_count: number;
   comments_dump?: Array<string | Record<string, unknown>> | null;
   ai_summary?: string | null;
+  selected_frame_timestamps?: number[] | null;
+  frames?: Array<{
+    timestamp: number;
+    image_url?: string | null;
+  }>;
 }
 
 export interface LocationRevision {

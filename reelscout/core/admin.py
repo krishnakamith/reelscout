@@ -70,7 +70,7 @@ class ScrapedReelAdmin(admin.ModelAdmin):
             'fields': ('author_handle', 'posted_at', 'instagram_location_name', 'location')
         }),
         ('AI Outputs', {
-            'fields': ('is_processed', 'ai_location_name', 'ai_summary', 'pretty_ai_summary')
+            'fields': ('is_processed', 'ai_location_name', 'selected_frame_timestamps', 'ai_summary', 'pretty_ai_summary')
         }),
     )
 

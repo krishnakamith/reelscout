@@ -62,6 +62,7 @@ class ScrapedReel(models.Model):
     # 6. AI OUTPUT
     ai_location_name = models.CharField(max_length=255, null=True, blank=True)
     ai_summary = models.TextField(null=True, blank=True)
+    selected_frame_timestamps = models.JSONField(default=list, blank=True)
 
     # 7. STATUS
     is_processed = models.BooleanField(default=False)
