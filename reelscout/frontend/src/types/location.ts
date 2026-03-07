@@ -1,62 +1,32 @@
-// Types for location data extracted from Instagram Reels
-
 export interface LocationData {
-  id: string;
+  id: number;
   name: string;
-  tagline: string;
-  description: string;
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
-  address: string;
-  region: string;
-  country: string;
+  slug: string;
   category: string;
-  hiddenGemScore: number; // 1-100
-  
-  // Extracted from reel
-  reelUrl: string;
-  reelAuthor: string;
-  reelAuthorHandle: string;
-  extractedAt: string;
-  
-  // AI-generated insights
-  bestTimeToVisit: string;
-  estimatedDuration: string;
-  difficultyLevel: 'Easy' | 'Moderate' | 'Challenging' | 'Expert';
-  accessibility: string;
-  entryFee: string;
-  
-  // Tips and highlights
-  tips: string[];
-  highlights: string[];
-  warnings: string[];
-  
-  // Nearby
-  nearbyPlaces: NearbyPlace[];
-  
-  // Community data
-  communityInsights: CommunityInsight[];
-  
-  // Media
-  images: string[];
-  videoThumbnail: string;
+  district?: string | null;
+  specific_area?: string | null;
+  general_info: Record<string, string>;
+  known_facts: Record<string, string>;
+  latitude?: string | null;
+  longitude?: string | null;
+  reels: ReelData[];
+  revisions: LocationRevision[];
 }
 
-export interface NearbyPlace {
-  name: string;
-  type: 'restaurant' | 'hotel' | 'attraction' | 'transport';
-  distance: string;
-  rating?: number;
+export interface ReelData {
+  short_code: string;
+  original_url: string;
+  thumbnail_url?: string | null;
+  author_handle?: string | null;
+  view_count: number;
+  like_count: number;
+  comments_dump?: Array<string | Record<string, unknown>> | null;
+  ai_summary?: string | null;
 }
 
-export interface CommunityInsight {
-  id: string;
-  author: string;
-  avatar?: string;
-  content: string;
-  date: string;
-  helpful: number;
-  verified: boolean;
+export interface LocationRevision {
+  id: number;
+  edited_by: string;
+  comment: string;
+  created_at: string;
 }

@@ -13,9 +13,8 @@ interface LocationDetailResponse {
   name?: string;
   district?: string;
   specific_area?: string;
-  description?: string;
-  best_time_to_visit?: string;
-  extracted_tips?: Record<string, string>;
+  general_info?: Record<string, string>;
+  known_facts?: Record<string, string>;
   reels?: ReelItem[];
 }
 
@@ -100,32 +99,16 @@ const LocationDetail = () => {
         }
 
         const mappedInsights: InsightItem[] = [];
-        if (data?.description?.trim()) {
-          mappedInsights.push({
-            icon: Eye,
-            label: "Overview",
-            value: data.description.trim(),
-            span: "col-span-1 sm:col-span-2",
-          });
-        }
-        if (data?.best_time_to_visit?.trim()) {
-          mappedInsights.push({
-            icon: Clock,
-            label: "Best Time",
-            value: data.best_time_to_visit.trim(),
-            span: "col-span-1",
-          });
-        }
-        if (data?.extracted_tips) {
-          Object.entries(data.extracted_tips)
+        if (data?.general_info) {
+          Object.entries(data.general_info)
             .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
-            .slice(0, 4)
+            .slice(0, 6)
             .forEach(([key, value], index) => {
               mappedInsights.push({
                 icon: insightIcons[index % insightIcons.length],
                 label: prettifyLabel(key),
                 value: value.trim(),
-                span: "col-span-1",
+                span: index === 0 ? "col-span-1 sm:col-span-2" : "col-span-1",
               });
             });
         }
@@ -135,6 +118,28 @@ const LocationDetail = () => {
 
         if (Array.isArray(data?.reels)) {
           const groupedFacts = new Map<string, ReelFactItem>();
+
+          if (data?.known_facts) {
+            Object.entries(data.known_facts)
+              .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
+              .forEach(([key, value], index) => {
+                const factText = value.trim();
+                const normalized = normalizeFactText(`${key} ${factText}`);
+                const existing = groupedFacts.get(normalized);
+                if (existing) {
+                  existing.verifiedCount = (existing.verifiedCount ?? 1) + 1;
+                  return;
+                }
+                groupedFacts.set(normalized, {
+                  id: `known-fact-${index}`,
+                  category: prettifyLabel(key),
+                  fact: factText,
+                  source: "Location knowledge base",
+                  verifiedCount: 1,
+                });
+              });
+          }
+
           data.reels.forEach((reel, index) => {
             if (typeof reel?.ai_summary === "string" && reel.ai_summary.trim()) {
               const factText = reel.ai_summary.trim();

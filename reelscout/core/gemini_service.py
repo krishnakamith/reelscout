@@ -59,32 +59,55 @@ class GeminiService:
         else:
             print("⚠️ No audio path provided to GeminiService.")
 
+        # 3. Process Comments
+        comments_text = "No comments available."
+        if reel.comments_dump:
+            if isinstance(reel.comments_dump, list):
+                # Take the top 15 comments to avoid massive token usage
+                top_comments = reel.comments_dump[:15]
+                # If they are dicts (e.g., {'text': 'love this!', 'user': 'xyz'}), extract the text
+                if len(top_comments) > 0 and isinstance(top_comments[0], dict):
+                    comments_text = "\n".join([f"- {c.get('text', '')}" for c in top_comments])
+                else:
+                    comments_text = "\n".join([f"- {str(c)}" for c in top_comments])
+
         prompt = f"""
-        You are a Malayalam travel and language expert.
+        You are a highly intelligent Malayalam travel data extraction expert.
 
         INPUTS:
         - Audio: Listen for spoken Malayalam words. Ignore music.
-        - Caption: \"{reel.raw_caption}\"
+        - Caption: "{reel.raw_caption}"
+        - Comments from viewers: "{comments_text}"
 
-        TASK 1: Transcribe the spoken Malayalam exactly. If NO speech, write \"Music only\".
+        TASK A: Transcribe the spoken Malayalam exactly. If NO speech, write "Music only".
+        TASK B: Identify the location and provide its geographic latitude and longitude coordinates.
 
-        TASK 2: Identify the location and provide its geographic latitude and longitude coordinates.
+        TASK C: Smart Dynamic Data Collection.
+        Extract data into two strict JSON dictionaries based ONLY on what is actively mentioned in the inputs. DO NOT use predefined keys. Invent your own highly descriptive, short snake_case keys based on the context of the video. 
+        
+        Section 1 - "general_info": Collect the subjective highlights, atmospheric descriptions, and opinions. 
+        (Examples of keys you MIGHT invent if mentioned: "monsoon_vibe", "scenic_highlights", "creator_opinion", "local_myth", "crowd_energy"). DO NOT write paragraphs.
 
-        TASK 3: Extract any genuinely useful travel facts from the audio or caption (e.g., parking situations, entry fees, warnings, local food, best time to visit). Create your own descriptive, short snake_case keys for whatever you find. Do not force categories if they are not mentioned.
+        Section 2 - "known_facts": Extract ONLY verifiable, strict objective facts.
+        (Examples of keys you MIGHT invent if mentioned: "jeep_safari_cost", "nearest_railway", "leech_warning", "exact_opening_time", "two_wheeler_parking", "trek_difficulty").
+        
+        CRITICAL: If a detail is not mentioned in the audio, caption, or comments, DO NOT invent a key for it. 
 
         Format strictly as JSON:
         {{
-            \"transcript\": \"Your transcript here...\",
-            \"location\": \"Place Name\",
-            \"district\": \"District Name\",
-            \"specific_area\": \"Specific area / locality\",
-            \"latitude\": 10.8505,
-            \"longitude\": 76.2711,
-            \"summary\": \"Reasoning...\",
-            \"extracted_tips\": {{
-                \"parking_fee\": \"50 INR\",
-                \"crowd_warning\": \"Very crowded on weekends\",
-                \"must_try_food\": \"Pazham Pori\"
+            "transcript": "Your transcript here...",
+            "location": "Place Name",
+            "district": "District Name",
+            "specific_area": "Specific area / locality",
+            "latitude": 10.8505,
+            "longitude": 76.2711,
+            "general_info": {{
+                "your_dynamic_key_here": "short extracted text",
+                "another_dynamic_key": "short extracted text"
+            }},
+            "known_facts": {{
+                "your_factual_key_here": "short fact",
+                "another_factual_key": "short fact"
             }}
         }}
         """

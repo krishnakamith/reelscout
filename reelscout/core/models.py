@@ -9,12 +9,9 @@ class Location(models.Model):
     district = models.CharField(max_length=100, null=True, blank=True)
     specific_area = models.CharField(max_length=150, null=True, blank=True)
 
-    # Wiki Content (The latest 'best' version)
-    description = models.TextField(blank=True, help_text="Wiki-style description")
-    how_to_reach = models.TextField(blank=True)
-    best_time_to_visit = models.TextField(blank=True)
-
-    extracted_tips = models.JSONField(default=dict, blank=True)
+    # Dynamic JSON Content
+    general_info = models.JSONField(default=dict, blank=True, help_text="Dynamic subjective info and vibes")
+    known_facts = models.JSONField(default=dict, blank=True, help_text="Dynamic objective data points")
 
     # Map Data
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)

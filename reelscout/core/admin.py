@@ -5,39 +5,42 @@ from .models import ScrapedReel, Location, LocationRevision, ReelFrame
 
 @admin.register(Location)
 class LocationAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'last_updated', 'has_ai_tips')
+    list_display = ('name', 'category', 'last_updated', 'has_dynamic_data')
     search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
-    readonly_fields = ('pretty_extracted_tips',)
+    readonly_fields = ('pretty_general_info', 'pretty_known_facts')
     
     # Organize fields into sections for a cleaner view
     fieldsets = (
         ('Basic Info', {
-            'fields': ('name', 'slug', 'category')
+            'fields': ('name', 'slug', 'category', 'district', 'specific_area')
         }),
-        ('Content', {
-            'fields': ('description', 'how_to_reach', 'best_time_to_visit')
-        }),
-        ('AI Extracted Data', {
-            'fields': ('extracted_tips', 'pretty_extracted_tips')
+        ('Dynamic JSON Data', {
+            'fields': ('general_info', 'pretty_general_info', 'known_facts', 'pretty_known_facts')
         }),
         ('Map Data', {
             'fields': ('latitude', 'longitude')
         }),
     )
 
-    def has_ai_tips(self, obj):
-        return bool(obj.extracted_tips)
-    has_ai_tips.boolean = True
-    has_ai_tips.short_description = 'AI Tips Present'
+    def has_dynamic_data(self, obj):
+        return bool(obj.general_info) or bool(obj.known_facts)
+    has_dynamic_data.boolean = True
+    has_dynamic_data.short_description = 'Dynamic Data Present'
 
-    def pretty_extracted_tips(self, obj):
-        """Displays the JSON data cleanly formatted in the admin panel."""
-        if obj.extracted_tips:
-            formatted_json = json.dumps(obj.extracted_tips, indent=4)
+    def pretty_general_info(self, obj):
+        if obj.general_info:
+            formatted_json = json.dumps(obj.general_info, indent=4)
             return format_html('<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 5px; font-family: monospace;">{}</pre>', formatted_json)
-        return "No AI JSON data extracted yet."
-    pretty_extracted_tips.short_description = 'Formatted Extracted Tips'
+        return "No general_info data yet."
+    pretty_general_info.short_description = 'Formatted general_info'
+
+    def pretty_known_facts(self, obj):
+        if obj.known_facts:
+            formatted_json = json.dumps(obj.known_facts, indent=4)
+            return format_html('<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 5px; font-family: monospace;">{}</pre>', formatted_json)
+        return "No known_facts data yet."
+    pretty_known_facts.short_description = 'Formatted known_facts'
 
 @admin.register(LocationRevision)
 class LocationRevisionAdmin(admin.ModelAdmin):

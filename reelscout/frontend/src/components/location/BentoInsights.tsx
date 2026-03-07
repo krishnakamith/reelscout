@@ -10,9 +10,8 @@ interface Insight {
 
 interface BentoInsightsProps {
   insights?: Insight[];
-  extractedTips?: Record<string, string>;
-  description?: string;
-  bestTimeToVisit?: string;
+  generalInfo?: Record<string, string>;
+  knownFacts?: Record<string, string>;
 }
 
 const defaultInsights: Insight[] = [
@@ -75,32 +74,14 @@ function prettifyLabel(key: string) {
 
 const BentoInsights = ({
   insights,
-  extractedTips,
-  description,
-  bestTimeToVisit,
+  generalInfo,
+  knownFacts,
 }: BentoInsightsProps) => {
   const derivedInsights: Insight[] = [];
 
-  if (description?.trim()) {
-    derivedInsights.push({
-      icon: Eye,
-      label: "Overview",
-      value: description.trim(),
-      span: "col-span-1 sm:col-span-2",
-    });
-  }
-
-  if (bestTimeToVisit?.trim()) {
-    derivedInsights.push({
-      icon: Calendar,
-      label: "Best Time",
-      value: bestTimeToVisit.trim(),
-      span: "col-span-1",
-    });
-  }
-
-  if (extractedTips) {
-    Object.entries(extractedTips)
+  const sourceData = generalInfo ?? knownFacts;
+  if (sourceData) {
+    Object.entries(sourceData)
       .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
       .slice(0, 6)
       .forEach(([key, value], index) => {

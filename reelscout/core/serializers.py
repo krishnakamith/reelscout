@@ -22,9 +22,9 @@ class LocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Location
-        # Added extracted_tips to the exposed fields
+        # Swapped old text fields for our new dynamic JSON fields!
         fields = [
-            'id', 'name', 'slug', 'category', 'district', 'specific_area', 'description',
-            'how_to_reach', 'best_time_to_visit', 'latitude',
-            'longitude', 'extracted_tips', 'reels', 'revisions'
+            'id', 'name', 'slug', 'category', 'district', 'specific_area', 
+            'general_info', 'known_facts', 'latitude', 'longitude', 
+            'reels', 'revisions'
         ]

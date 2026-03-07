@@ -115,9 +115,8 @@
         <section class="section">
             <h2>Information Collected</h2>
             <ul class="info-list">
-                <li><span class="label">Description:</span> {{ location.description|default:"No description available yet." }}</li>
-                <li><span class="label">How to Reach:</span> {{ location.how_to_reach|default:"Not available yet." }}</li>
-                <li><span class="label">Best Time to Visit:</span> {{ location.best_time_to_visit|default:"Not available yet." }}</li>
+                <li><span class="label">District:</span> {{ location.district|default:"Not available yet." }}</li>
+                <li><span class="label">Specific Area:</span> {{ location.specific_area|default:"Not available yet." }}</li>
                 <li><span class="label">Coordinates:</span>
                     {% if location.latitude and location.longitude %}
                         {{ location.latitude }}, {{ location.longitude }}
@@ -127,10 +126,18 @@
                 </li>
                 <li><span class="label">Reels Found:</span> {{ reels|length }}</li>
             </ul>
-            {% if location.extracted_tips %}
-                <h3 style="margin-top:16px;">Extracted Tips</h3>
+            {% if location.general_info %}
+                <h3 style="margin-top:16px;">General Info</h3>
                 <ul class="tips-list">
-                    {% for key, value in location.extracted_tips.items %}
+                    {% for key, value in location.general_info.items %}
+                        <li><span class="label">{{ key|title }}:</span> {{ value }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+            {% if location.known_facts %}
+                <h3 style="margin-top:16px;">Known Facts</h3>
+                <ul class="tips-list">
+                    {% for key, value in location.known_facts.items %}
                         <li><span class="label">{{ key|title }}:</span> {{ value }}</li>
                     {% endfor %}
                 </ul>

@@ -13,6 +13,19 @@ def extract_shortcode(url):
     match = re.search(r'/(?:reel|p)/([^/?#&]+)', url)
     return match.group(1) if match else None
 
+def _as_dict(value):
+    return value if isinstance(value, dict) else {}
+
+def _merge_dynamic_data(current, incoming):
+    merged = _as_dict(current).copy()
+    for key, value in _as_dict(incoming).items():
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        merged[str(key)] = value
+    return merged
+
 def get_or_process_reel(reel_url):
     # 1. CHECK REEL CACHE
     short_code = extract_shortcode(reel_url)
@@ -96,10 +109,10 @@ def get_or_process_reel(reel_url):
                 loc_name = data.get("location")
                 district = data.get("district")
                 specific_area = data.get("specific_area")
+                general_info = _as_dict(data.get("general_info"))
+                known_facts = _as_dict(data.get("known_facts"))
 
-                tips = data.get("extracted_tips", {})
-
-                # Check for existing location or create a new one
+                # Check for existing location or create a new one.
                 if loc_name:
                     location_obj, loc_created = Location.objects.get_or_create(
                         name=loc_name,
@@ -109,17 +122,23 @@ def get_or_process_reel(reel_url):
                             'specific_area': specific_area,
                             'latitude': data.get('latitude'),
                             'longitude': data.get('longitude'),
-                            'extracted_tips': tips
+                            'general_info': general_info,
+                            'known_facts': known_facts,
                         }
                     )
 
-                    # Merge new tips and location metadata into an existing location
+                    # Merge dynamic dictionaries and fill any missing metadata.
                     if not loc_created:
                         has_updates = False
-                        current_tips = location_obj.extracted_tips or {}
-                        if tips:
-                            current_tips.update(tips)
-                            location_obj.extracted_tips = current_tips
+
+                        merged_general_info = _merge_dynamic_data(location_obj.general_info, general_info)
+                        if merged_general_info != (location_obj.general_info or {}):
+                            location_obj.general_info = merged_general_info
+                            has_updates = True
+
+                        merged_known_facts = _merge_dynamic_data(location_obj.known_facts, known_facts)
+                        if merged_known_facts != (location_obj.known_facts or {}):
+                            location_obj.known_facts = merged_known_facts
                             has_updates = True
 
                         if district and not location_obj.district:
@@ -130,6 +149,15 @@ def get_or_process_reel(reel_url):
                             location_obj.specific_area = specific_area
                             has_updates = True
 
+                        latitude = data.get("latitude")
+                        longitude = data.get("longitude")
+                        if latitude and not location_obj.latitude:
+                            location_obj.latitude = latitude
+                            has_updates = True
+                        if longitude and not location_obj.longitude:
+                            location_obj.longitude = longitude
+                            has_updates = True
+
                         if has_updates:
                             location_obj.save()
 
@@ -137,7 +165,11 @@ def get_or_process_reel(reel_url):
 
                 reel.transcript_text = data.get("transcript")
                 reel.ai_location_name = loc_name
-                reel.ai_summary = data.get("summary")
+                reel.ai_summary = (
+                    data.get("summary")
+                    or data.get("transcript")
+                    or reel.ai_summary
+                )
                 reel.is_processed = True
                 reel.save()
 
