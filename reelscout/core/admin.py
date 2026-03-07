@@ -53,18 +53,18 @@ class ReelFrameInline(admin.TabularInline):
 
 @admin.register(ScrapedReel)
 class ScrapedReelAdmin(admin.ModelAdmin):
-    list_display = ('short_code', 'author_handle', 'location', 'posted_at', 'is_processed')
+    list_display = ('short_code', 'author_handle', 'location', 'posted_at', 'comments_count', 'is_processed')
     list_filter = ('is_processed', 'posted_at', 'location')
     search_fields = ('short_code', 'author_handle')
     inlines = [ReelFrameInline]
-    readonly_fields = ('pretty_ai_summary',)
+    readonly_fields = ('pretty_comments_dump', 'pretty_ai_summary')
 
     fieldsets = (
         ('Identifiers & Media', {
             'fields': ('short_code', 'instagram_id', 'original_url', 'video_file', 'audio_file', 'thumbnail_url')
         }),
         ('Text Context', {
-            'fields': ('raw_caption', 'transcript_text')
+            'fields': ('raw_caption', 'transcript_text', 'comments_dump', 'pretty_comments_dump')
         }),
         ('Metadata & Location', {
             'fields': ('author_handle', 'posted_at', 'instagram_location_name', 'location')
@@ -79,6 +79,20 @@ class ScrapedReelAdmin(admin.ModelAdmin):
             return format_html('<div style="background-color: #f4f6f8; padding: 15px; border-left: 4px solid #4CAF50;">{}</div>', obj.ai_summary)
         return "-"
     pretty_ai_summary.short_description = 'AI Summary View'
+
+    def comments_count(self, obj):
+        return len(obj.comments_dump or [])
+    comments_count.short_description = 'Comments'
+
+    def pretty_comments_dump(self, obj):
+        if obj.comments_dump:
+            formatted_json = json.dumps(obj.comments_dump, indent=2, ensure_ascii=False)
+            return format_html(
+                '<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 5px; white-space: pre-wrap;">{}</pre>',
+                formatted_json
+            )
+        return "No comments saved yet."
+    pretty_comments_dump.short_description = 'Comments Preview'
 
 @admin.register(ReelFrame)
 class ReelFrameAdmin(admin.ModelAdmin):

@@ -59,15 +59,18 @@ def location_detail(request, slug):
 @api_view(['POST'])
 def search_reel(request):
     url = request.data.get('url')
+    raw_comments = request.data.get('comments', [])
     if not url: return Response({"error": "URL is required"}, status=400)
     try:
-        reel = get_or_process_reel(url)
+        prepared_comments = clean_and_rank_comments(raw_comments)
+        reel = get_or_process_reel(url, prepared_comments=prepared_comments)
         return Response({
             "status": "success",
             "data": {
                 "short_code": reel.short_code,
                 "location_name": reel.location.name if reel.location else "Unknown",
                 "location_slug": reel.location.slug if reel.location else None,
+                "comments_count": len(reel.comments_dump or []),
             }
         })
     except Exception as e:

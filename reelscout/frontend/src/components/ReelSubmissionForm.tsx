@@ -22,7 +22,6 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`async function run() {
         if (s.innerText.length > 2 && s.innerText.length < 300) comments.push(s.innerText);
     });
     const uniqueComments = [...new Set(comments)];
-    console.log(\`✅ Scraped \${uniqueComments.length} comments.\`);
 
     // 3. Prepare Data
     const payload = JSON.stringify({ short_code: sc, comments: uniqueComments });
@@ -85,7 +84,31 @@ export function ReelSubmissionForm() {
     setIsSubmitting(true);
 
     try {
-      // Send the data to our Vite proxy, which forwards it to Django
+      let pastedShortCode: string | null = null;
+      let comments: string[] = [];
+      const commentsInput = formData.commentsText.trim();
+
+      // Support both raw newline comments and the JSON payload copied from the scraper script.
+      try {
+        const parsed = JSON.parse(commentsInput);
+        if (parsed && typeof parsed === "object") {
+          if (typeof parsed.short_code === "string") {
+            pastedShortCode = parsed.short_code;
+          }
+          if (Array.isArray(parsed.comments)) {
+            comments = parsed.comments
+              .map((item) => String(item).trim())
+              .filter((line) => line.length > 0);
+          }
+        }
+      } catch {
+        comments = commentsInput
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+      }
+
+      // Send URL + comments together so backend can persist comments before AI analysis starts.
       const response = await fetch('/api/search/', {
         method: 'POST',
         headers: {
@@ -93,19 +116,17 @@ export function ReelSubmissionForm() {
         },
         body: JSON.stringify({
           url: formData.reelUrl,
+          comments,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        const shortCode = data?.data?.short_code;
-        const comments = formData.commentsText
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0);
+        const shortCode = data?.data?.short_code || pastedShortCode;
 
-        if (shortCode && comments.length > 0) {
+        // Backward-compatibility fallback for older backend behavior.
+        if (shortCode && comments.length > 0 && (data?.data?.comments_count ?? 0) === 0) {
           const commentsResponse = await fetch('/api/save-comments/', {
             method: 'POST',
             headers: {

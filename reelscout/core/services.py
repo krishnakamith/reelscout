@@ -27,13 +27,16 @@ def _merge_dynamic_data(current, incoming):
         merged[str(key)] = value
     return merged
 
-def get_or_process_reel(reel_url):
+def get_or_process_reel(reel_url, prepared_comments=None):
     # 1. CHECK REEL CACHE
     short_code = extract_shortcode(reel_url)
     if not short_code: raise ValueError("Invalid Instagram URL")
 
     existing_reel = ScrapedReel.objects.filter(short_code=short_code).first()
-    if existing_reel and existing_reel.is_processed:
+    has_prepared_comments = bool(prepared_comments and len(prepared_comments) > 0)
+    if existing_reel and existing_reel.is_processed and not (
+        has_prepared_comments and not existing_reel.comments_dump
+    ):
         return existing_reel
 
     # 2. SCRAPE (Video + Metadata)
@@ -60,20 +63,23 @@ def get_or_process_reel(reel_url):
         try: formatted_date = datetime.fromisoformat(item.get("timestamp").replace("Z", "+00:00"))
         except: pass
 
+    reel_defaults = {
+        "instagram_id": item.get("id"),
+        "original_url": item.get("url"),
+        "raw_caption": item.get("caption"),
+        "author_handle": item.get("ownerUsername"),
+        "thumbnail_url": item.get("displayUrl"),
+        "posted_at": formatted_date,
+        "view_count": item.get("videoViewCount", 0),
+        "like_count": item.get("likesCount", 0),
+        "instagram_location_name": item.get("location", {}).get("name") if item.get("location") else None,
+    }
+    if has_prepared_comments:
+        reel_defaults["comments_dump"] = prepared_comments
+
     reel, created = ScrapedReel.objects.update_or_create(
         short_code=short_code,
-        defaults={
-            "instagram_id": item.get("id"),
-            "original_url": item.get("url"),
-            "raw_caption": item.get("caption"),
-            "author_handle": item.get("ownerUsername"),
-            "thumbnail_url": item.get("displayUrl"),
-            "posted_at": formatted_date,
-            "comments_dump": [],
-            "view_count": item.get("videoViewCount", 0),
-            "like_count": item.get("likesCount", 0),
-            "instagram_location_name": item.get("location", {}).get("name") if item.get("location") else None
-        }
+        defaults=reel_defaults
     )
 
     # 4. DOWNLOAD & PROCESS MEDIA
@@ -96,17 +102,20 @@ def get_or_process_reel(reel_url):
             reel.audio_file.name = audio_path
             reel.save()
 
-        # 👉 THE WAITING ROOM: Pause to let the browser script save comments!
-        print("⏳ Waiting for comments from the browser script...")
-        max_attempts = 15 # Wait up to 30 seconds (15 attempts * 2 seconds)
-        for attempt in range(max_attempts):
-            reel.refresh_from_db()
-            if reel.comments_dump and len(reel.comments_dump) > 0:
-                print("✅ Comments received! Proceeding to AI analysis.")
-                break
-            time.sleep(2)
+        if has_prepared_comments:
+            print("✅ Using comments provided with request.")
         else:
-            print("⚠️ No comments received within the timeout limit. Proceeding without comments.")
+            # 👉 THE WAITING ROOM: Pause to let the browser script save comments!
+            print("⏳ Waiting for comments from the browser script...")
+            max_attempts = 15 # Wait up to 30 seconds (15 attempts * 2 seconds)
+            for attempt in range(max_attempts):
+                reel.refresh_from_db()
+                if reel.comments_dump and len(reel.comments_dump) > 0:
+                    print("✅ Comments received! Proceeding to AI analysis.")
+                    break
+                time.sleep(2)
+            else:
+                print("⚠️ No comments received within the timeout limit. Proceeding without comments.")
 
         # 5. CALL GEMINI & LINK TO LOCATION
         print("🧠 Calling Gemini (Transcript + Vision + Comments)...")
