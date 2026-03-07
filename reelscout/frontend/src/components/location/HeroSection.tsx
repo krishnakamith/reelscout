@@ -1,13 +1,14 @@
 ﻿import { MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import heroImage from "@/assets/hero-location.jpg";
-import heroImage1 from "@/assets/hero-location (1).jpg";
-import heroImage2 from "@/assets/hero-location (2).jpg";
-import heroImage3 from "@/assets/hero-location (3).jpg";
-import heroImage4 from "@/assets/hero-location (4).jpg";
-import heroImage5 from "@/assets/hero-location (5).jpg";
-import heroImage6 from "@/assets/hero-location (6).jpg";
-import heroImage7 from "@/assets/hero-location (7).jpg";
+import heroDefaultImage from "@/assets/hero-default.jpg";
+import heroTempleImage from "@/assets/hero-temple.jpg";
+import heroSacredImage from "@/assets/hero-sacred.jpg";
+import heroWaterfallImage from "@/assets/hero-waterfall.jpg";
+import heroBeachImage from "@/assets/hero-beach.jpg";
+import heroHeritageImage from "@/assets/hero-heritage.jpg";
+import heroHillsImage from "@/assets/hero-hills.jpg";
+import heroWaterbodyImage from "@/assets/hero-waterbody.jpg";
+import heroForestImage from "@/assets/hero-forest.jpg";
 
 interface HeroSectionProps {
   locationName?: string;
@@ -17,25 +18,20 @@ interface HeroSectionProps {
   reelCount?: number;
 }
 
-function pickHeroImage(category?: string) {
-  const normalized = String(category || "").trim().toLowerCase();
+function pickHeroImage(category?: string, locationName?: string) {
+  const raw = `${String(category || "").trim().toLowerCase()} ${String(locationName || "").trim().toLowerCase()}`.trim();
+  const compact = raw.replace(/[\s_-]+/g, "");
 
-  const categoryImageMap: Record<string, string> = {
-    temple: heroImage1,
-    church: heroImage2,
-    mosque: heroImage2,
-    waterfall: heroImage3,
-    beach: heroImage4,
-    fort: heroImage5,
-    cave: heroImage5,
-    "hill station": heroImage6,
-    viewpoint: heroImage6,
-    lake: heroImage7,
-    dam: heroImage7,
-    park: heroImage,
-  };
+  if (raw.includes("waterfall") || raw.includes("falls") || compact.includes("waterfall")) return heroWaterfallImage;
+  if (raw.includes("beach")) return heroBeachImage;
+  if (raw.includes("temple")) return heroTempleImage;
+  if (raw.includes("church") || raw.includes("mosque")) return heroSacredImage;
+  if (raw.includes("fort") || raw.includes("cave")) return heroHeritageImage;
+  if (raw.includes("hill") || raw.includes("mountain") || raw.includes("viewpoint") || raw.includes("view point")) return heroHillsImage;
+  if (raw.includes("lake") || raw.includes("dam") || raw.includes("river") || raw.includes("water")) return heroWaterbodyImage;
+  if (raw.includes("park")) return heroDefaultImage;
 
-  return categoryImageMap[normalized] || heroImage;
+  return heroForestImage;
 }
 
 const HeroSection = ({
@@ -45,7 +41,7 @@ const HeroSection = ({
   locationText = "Kyoto, Japan",
   reelCount = 23,
 }: HeroSectionProps) => {
-  const heroImageSrc = pickHeroImage(category);
+  const heroImageSrc = pickHeroImage(category, locationName);
 
   return (
     <section className="relative h-[70vh] min-h-[500px] w-full overflow-hidden">
