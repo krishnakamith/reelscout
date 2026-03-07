@@ -79,6 +79,18 @@ export function ReelSubmissionForm() {
     }
   };
 
+  const parseJsonSafe = async (response: Response) => {
+    const raw = await response.text();
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {
+        error: `Server returned non-JSON response (HTTP ${response.status}).`,
+      };
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -120,7 +132,7 @@ export function ReelSubmissionForm() {
         }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonSafe(response);
 
       if (response.ok) {
         const shortCode = data?.data?.short_code || pastedShortCode;
@@ -139,7 +151,7 @@ export function ReelSubmissionForm() {
           });
 
           if (!commentsResponse.ok) {
-            const commentsData = await commentsResponse.json().catch(() => ({}));
+            const commentsData = await parseJsonSafe(commentsResponse);
             throw new Error(commentsData.error || "Failed to save comments");
           }
         }
@@ -161,7 +173,7 @@ export function ReelSubmissionForm() {
         });
       } else {
         // If Django sends back an error (like an invalid URL)
-        throw new Error(data.error || "Submission failed");
+        throw new Error(data.error || `Submission failed (HTTP ${response.status})`);
       }
     } catch (error) {
       toast.error("Error submitting reel", {
