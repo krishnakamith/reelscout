@@ -182,11 +182,19 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
                     reel.location = location_obj
 
-                reel.transcript_text = data.get("transcript")
+                transcript_text = data.get("transcript")
+                summary_text = data.get("summary")
+
+                # Prevent transcript from being reused as summary.
+                if isinstance(summary_text, str) and isinstance(transcript_text, str):
+                    if summary_text.strip() == transcript_text.strip():
+                        summary_text = None
+
+                reel.transcript_text = transcript_text
                 reel.ai_location_name = loc_name
                 reel.ai_summary = (
-                    data.get("summary")
-                    or data.get("transcript")
+                    summary_text
+                    or reel.raw_caption
                     or reel.ai_summary
                 )
                 reel.is_processed = True
