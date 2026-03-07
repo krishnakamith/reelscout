@@ -1,4 +1,5 @@
-import { Camera } from "lucide-react";
+﻿import { useState } from "react";
+import { Camera, Expand } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -6,6 +7,7 @@ import {
   CarouselPrevious,
   CarouselNext,
 } from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface GalleryFrame {
   src: string;
@@ -19,6 +21,8 @@ interface FrameGalleryProps {
 }
 
 const FrameGallery = ({ frames = [] }: FrameGalleryProps) => {
+  const [selectedFrame, setSelectedFrame] = useState<GalleryFrame | null>(null);
+
   return (
     <section className="py-16 sm:py-20 bg-secondary/40">
       <div className="section-container">
@@ -36,19 +40,29 @@ const FrameGallery = ({ frames = [] }: FrameGalleryProps) => {
           <Carousel opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-4">
               {frames.map((frame, i) => (
-                <CarouselItem key={`${frame.src}-${i}`} className="pl-4 basis-4/5 sm:basis-1/2 md:basis-1/3">
-                  <div className="masonry-item overflow-hidden rounded-xl">
+                <CarouselItem key={`${frame.src}-${i}`} className="pl-4 basis-[92%] sm:basis-3/4 md:basis-1/2 lg:basis-2/5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFrame(frame)}
+                    className="masonry-item overflow-hidden rounded-xl text-left w-full"
+                  >
                     <img
                       src={frame.src}
                       alt={frame.alt}
-                      className="w-full h-64 sm:h-80 object-cover rounded-xl transition-transform duration-500 ease-out hover:scale-105"
+                      className="w-full h-80 sm:h-[28rem] object-cover rounded-xl transition-transform duration-500 ease-out hover:scale-105"
                       loading="lazy"
                     />
-                    <div className="px-1 pt-2 text-xs text-muted-foreground">
-                      {frame.reelShortCode ? `Reel ${frame.reelShortCode}` : "Reel Frame"}
-                      {typeof frame.timestamp === "number" ? ` · ${frame.timestamp.toFixed(1)}s` : ""}
+                    <div className="px-1 pt-2 text-xs text-muted-foreground flex items-center justify-between gap-2">
+                      <span>
+                        {frame.reelShortCode ? `Reel ${frame.reelShortCode}` : "Reel Frame"}
+                        {typeof frame.timestamp === "number" ? ` · ${frame.timestamp.toFixed(1)}s` : ""}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-foreground/80">
+                        <Expand className="h-3.5 w-3.5" />
+                        Expand
+                      </span>
                     </div>
-                  </div>
+                  </button>
                 </CarouselItem>
               ))}
             </CarouselContent>
@@ -57,6 +71,19 @@ const FrameGallery = ({ frames = [] }: FrameGalleryProps) => {
           </Carousel>
         )}
       </div>
+
+      <Dialog open={Boolean(selectedFrame)} onOpenChange={(open) => !open && setSelectedFrame(null)}>
+        <DialogContent className="max-w-5xl p-2 sm:p-4">
+          <DialogTitle className="sr-only">Expanded Frame Preview</DialogTitle>
+          {selectedFrame ? (
+            <img
+              src={selectedFrame.src}
+              alt={selectedFrame.alt}
+              className="w-full max-h-[85vh] object-contain rounded-lg"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };
