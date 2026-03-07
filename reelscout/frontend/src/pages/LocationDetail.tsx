@@ -23,6 +23,7 @@ interface LocationDetailResponse {
   general_info?: Record<string, string>;
   known_facts?: Record<string, string>;
   reels?: ReelItem[];
+  revisions?: RevisionItem[];
   latitude?: string | null;
   longitude?: string | null;
   nearby_places?: NearbyPlace[];
@@ -32,6 +33,14 @@ interface ReelItem {
   short_code?: string;
   ai_summary?: string;
   comments_dump?: string[];
+  author_handle?: string;
+}
+
+interface RevisionItem {
+  id: number;
+  edited_by: string;
+  comment: string;
+  created_at: string;
 }
 
 interface InsightItem {
@@ -79,11 +88,33 @@ const LocationDetail = () => {
   const [latitude, setLatitude] = useState<string | null>(null);
   const [longitude, setLongitude] = useState<string | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
+  const [communityEntries, setCommunityEntries] = useState<
+    Array<{ id: string; user: string; text: string; time: string; likes?: number; tag: string }>
+  >([]);
+
+  const formatRelativeTime = (isoTime: string) => {
+    const date = new Date(isoTime);
+    if (Number.isNaN(date.getTime())) return "Recently";
+    const diff = Math.max(0, Date.now() - date.getTime());
+    const mins = Math.floor(diff / (1000 * 60));
+    if (mins < 60) return `${mins || 1} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days} day${days === 1 ? "" : "s"} ago`;
+  };
+
+  const parseRevision = (comment: string) => {
+    const match = /^\[([^\]]+)\]\s*(.*)$/.exec(comment.trim());
+    if (!match) return { tag: "Community Tip", text: comment };
+    return { tag: match[1], text: match[2] };
+  };
 
   useEffect(() => {
     if (!slug) return;
 
     let isMounted = true;
+    setCommunityEntries([]);
 
     fetch(`/api/locations/${encodeURIComponent(slug)}/`)
       .then((response) => {
@@ -121,6 +152,43 @@ const LocationDetail = () => {
         if (data.latitude) setLatitude(data.latitude);
         if (data.longitude) setLongitude(data.longitude);
         if (data.nearby_places) setNearbyPlaces(data.nearby_places);
+
+        const entries: Array<{ id: string; user: string; text: string; time: string; likes?: number; tag: string }> = [];
+
+        if (Array.isArray(data?.revisions)) {
+          data.revisions.forEach((revision) => {
+            const parsed = parseRevision(revision.comment || "");
+            entries.push({
+              id: `revision-${revision.id}`,
+              user: (revision.edited_by || "Anonymous").replace(/\s+/g, ".").toLowerCase(),
+              text: parsed.text || revision.comment,
+              tag: parsed.tag || "Community Tip",
+              time: formatRelativeTime(revision.created_at),
+            });
+          });
+        }
+
+        if (Array.isArray(data?.reels)) {
+          data.reels.forEach((reel, idx) => {
+            const topComment = reel?.comments_dump?.[0];
+            if (typeof topComment === "string" && topComment.trim()) {
+              const stripped = topComment
+                .replace(/\[score:\s*\d+\]\s*\([^)]+\)\s*/i, "")
+                .trim();
+              entries.push({
+                id: `reel-comment-${reel.short_code || idx}`,
+                user: (reel.author_handle || "reel.community").replace(/\s+/g, ".").toLowerCase(),
+                text: stripped,
+                tag: "From Reels",
+                time: "Imported",
+              });
+            }
+          });
+        }
+
+        if (entries.length > 0) {
+          setCommunityEntries(entries.slice(0, 20));
+        }
 
         const mappedInsights: InsightItem[] = [];
         if (data?.general_info) {
@@ -239,7 +307,7 @@ const LocationDetail = () => {
         longitude={longitude}
         initialPlaces={nearbyPlaces}
       />
-      <CommunityPulse />
+      <CommunityPulse locationSlug={slug} initialEntries={communityEntries} />
       <FrameGallery />
       <ChatbotCTA />
     </main>

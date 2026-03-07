@@ -27,6 +27,29 @@ def _merge_dynamic_data(current, incoming):
         merged[str(key)] = value
     return merged
 
+def _infer_category(location_name):
+    name = str(location_name or "").lower()
+    rules = (
+        ("waterfall", "Waterfall"),
+        ("falls", "Waterfall"),
+        ("beach", "Beach"),
+        ("temple", "Temple"),
+        ("church", "Church"),
+        ("mosque", "Mosque"),
+        ("fort", "Fort"),
+        ("dam", "Dam"),
+        ("lake", "Lake"),
+        ("hill", "Hill Station"),
+        ("cave", "Cave"),
+        ("park", "Park"),
+        ("view point", "Viewpoint"),
+        ("viewpoint", "Viewpoint"),
+    )
+    for key, category in rules:
+        if key in name:
+            return category
+    return None
+
 def get_or_process_reel(reel_url, prepared_comments=None):
     # 1. CHECK REEL CACHE
     short_code = extract_shortcode(reel_url)
@@ -135,10 +158,11 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                 known_facts = _as_dict(data.get("known_facts"))
 
                 if loc_name:
+                    resolved_category = category or _infer_category(loc_name) or "Uncategorized"
                     location_obj, loc_created = Location.objects.get_or_create(
                         name=loc_name,
                         defaults={
-                            'category': data.get('category', 'Uncategorized'),
+                            'category': resolved_category,
                             'district': district,
                             'specific_area': specific_area,
                             'latitude': data.get('latitude'),
@@ -160,6 +184,12 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                         if merged_known_facts != (location_obj.known_facts or {}):
                             location_obj.known_facts = merged_known_facts
                             has_updates = True
+
+                        if (not location_obj.category) or location_obj.category.strip().lower() == "uncategorized":
+                            inferred = category or _infer_category(loc_name)
+                            if inferred:
+                                location_obj.category = inferred
+                                has_updates = True
 
                         if category and not location_obj.category:
                             location_obj.category = category

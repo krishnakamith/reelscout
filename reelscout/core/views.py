@@ -3,7 +3,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from .services import get_or_process_reel
-from .models import ScrapedReel, Location
+from .models import ScrapedReel, Location, LocationRevision
 from rest_framework import generics
 from .serializers import LocationSerializer
 
@@ -142,3 +142,42 @@ class LocationDetailAPI(generics.RetrieveAPIView):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     lookup_field = 'slug'
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([])
+def add_location_note(request, slug):
+    location = get_object_or_404(Location, slug=slug)
+
+    note = str(request.data.get('note', '')).strip()
+    edited_by = str(request.data.get('edited_by', 'Anonymous')).strip() or "Anonymous"
+    tag = str(request.data.get('tag', 'Community Tip')).strip() or "Community Tip"
+
+    if len(note) < 5:
+        return Response({"error": "Note must be at least 5 characters"}, status=400)
+
+    edited_by = edited_by[:100]
+    tag = tag[:40]
+
+    snapshot = {
+        "general_info": location.general_info or {},
+        "known_facts": location.known_facts or {},
+        "nearby_places": location.nearby_places or [],
+    }
+
+    revision = LocationRevision.objects.create(
+        location=location,
+        content_snapshot=snapshot,
+        edited_by=edited_by,
+        comment=f"[{tag}] {note[:220]}",
+    )
+
+    return Response({
+        "status": "success",
+        "revision": {
+            "id": revision.id,
+            "edited_by": revision.edited_by,
+            "comment": revision.comment,
+            "created_at": revision.created_at,
+        }
+    })
