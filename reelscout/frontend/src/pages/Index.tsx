@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { MapPin, Plus, Sparkles, Film, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KeralaMap } from "@/components/KeralaMap";
@@ -8,6 +8,8 @@ import heroImage from "@/assets/kerala-hero.jpg";
 
 const Index = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const hasAutoScrolledRef = useRef(false);
   const [locationsCount, setLocationsCount] = useState<number | null>(null);
   const [reelsCount, setReelsCount] = useState<number | null>(null);
 
@@ -52,6 +54,19 @@ const Index = () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const shouldScroll =
+      (location.state as { scrollToMap?: boolean } | null)?.scrollToMap ||
+      location.hash === "#map-section";
+
+    if (!shouldScroll || hasAutoScrolledRef.current) return;
+
+    hasAutoScrolledRef.current = true;
+    setTimeout(() => {
+      document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }, [location.state, location.hash]);
 
   return (
     <div className="min-h-screen bg-background">

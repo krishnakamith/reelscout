@@ -102,6 +102,10 @@ const LocationDetail = () => {
     Array<{ src: string; alt: string; reelShortCode?: string; timestamp?: number }>
   >([]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [slug]);
+
   const formatRelativeTime = (isoTime: string) => {
     const date = new Date(isoTime);
     if (Number.isNaN(date.getTime())) return "Recently";
@@ -307,24 +311,6 @@ const LocationDetail = () => {
                 });
               }
             }
-
-            const topComment = reel?.comments_dump?.[0];
-            if (typeof topComment === "string" && topComment.trim()) {
-              const factText = topComment.trim();
-              const key = `Community Note::${normalizeFactText(factText)}`;
-              const existing = groupedFacts.get(key);
-              if (existing) {
-                existing.verifiedCount = (existing.verifiedCount ?? 1) + 1;
-              } else {
-                groupedFacts.set(key, {
-                  id: `comment-${reel.short_code ?? index}`,
-                  category: "Community Note",
-                  fact: factText,
-                  source: reel.short_code ? `Reel ${reel.short_code}` : undefined,
-                  verifiedCount: 1,
-                });
-              }
-            }
           });
 
           const mappedFacts = Array.from(groupedFacts.values()).sort(
@@ -349,7 +335,7 @@ const LocationDetail = () => {
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/", { state: { scrollToMap: true } })}
             className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
