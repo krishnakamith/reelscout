@@ -74,6 +74,11 @@ def search_reel(request):
         return Response({"error": str(e)}, status=500)
 
 def clean_and_rank_comments(raw_list):
+    if isinstance(raw_list, str):
+        raw_list = raw_list.splitlines()
+    if not isinstance(raw_list, list):
+        raw_list = []
+
     cleaned_comments = []
     date_pattern = re.compile(r'^\d+[wdhm]$')
     likes_pattern = re.compile(r'^([\d,]+)\s+likes?$')
@@ -81,7 +86,9 @@ def clean_and_rank_comments(raw_list):
     pending_date = "Unknown"
 
     for item in raw_list:
-        item = item.strip()
+        if item is None:
+            continue
+        item = str(item).strip()
         if not item: continue
         if date_pattern.match(item):
             pending_date = item

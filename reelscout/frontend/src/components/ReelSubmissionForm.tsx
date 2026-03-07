@@ -1,11 +1,51 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Link2, MapPin, Tag, FileText, Upload, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Link2, MessageSquareText, Upload, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+
+const COMMENT_SCRAPER_SCRIPT = String.raw`async function run() {
+    console.log("🚀 Script Started...");
+
+    // 1. Get Shortcode
+    const match = window.location.pathname.match(/\/reels?\/([^\/]+)/);
+    const sc = match ? match[1] : null;
+    if (!sc) { alert("❌ Error: Can't find Reel ID in URL"); return; }
+    console.log("✅ Reel ID found:", sc);
+
+    // 2. Scrape Text (Instant Mode - No clicking for now)
+    const comments = [];
+    document.querySelectorAll('span').forEach(s => {
+        if (s.innerText.length > 2 && s.innerText.length < 300) comments.push(s.innerText);
+    });
+    const uniqueComments = [...new Set(comments)];
+    console.log(\`✅ Scraped \${uniqueComments.length} comments.\`);
+
+    // 3. Prepare Data
+    const payload = JSON.stringify({ short_code: sc, comments: uniqueComments });
+
+    // 4. Try to Copy (The "Triple Fallback" Method)
+    try {
+        // Method A: Standard Clipboard API
+        await navigator.clipboard.writeText(payload);
+        alert("✅ COPIED! (Method A)\n\nGo paste it in ReelScout.");
+    } catch (errA) {
+        console.warn("Method A failed. Trying Method B...");
+        try {
+            // Method B: DevTools Command
+            copy(payload);
+            alert("✅ COPIED! (Method B)\n\nGo paste it in ReelScout.");
+        } catch (errB) {
+            console.warn("Method B failed. Switching to Manual Mode.");
+            // Method C: Brute Force Prompt
+            window.prompt("❌ Auto-copy failed. Press Ctrl+C to copy this manually:", payload);
+        }
+    }
+}
+run();`;
 
 function toSlug(value: string) {
   return value
@@ -21,10 +61,7 @@ export function ReelSubmissionForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     reelUrl: "",
-    locationName: "",
-    district: "",
-    tags: "",
-    description: "",
+    commentsText: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -32,6 +69,15 @@ export function ReelSubmissionForm() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const copyScriptToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(COMMENT_SCRAPER_SCRIPT);
+      toast.success("Script copied");
+    } catch {
+      toast.error("Could not copy script");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,30 +91,49 @@ export function ReelSubmissionForm() {
         headers: {
           'Content-Type': 'application/json',
         },
-        // Django is expecting the field to be named 'url', so we map reelUrl to url
         body: JSON.stringify({
           url: formData.reelUrl,
-          locationName: formData.locationName,
-          district: formData.district,
-          tags: formData.tags,
-          description: formData.description
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        const shortCode = data?.data?.short_code;
+        const comments = formData.commentsText
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+
+        if (shortCode && comments.length > 0) {
+          const commentsResponse = await fetch('/api/save-comments/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              short_code: shortCode,
+              comments,
+            }),
+          });
+
+          if (!commentsResponse.ok) {
+            const commentsData = await commentsResponse.json().catch(() => ({}));
+            throw new Error(commentsData.error || "Failed to save comments");
+          }
+        }
+
         toast.success("Reel submitted successfully!", {
           description: `Detected location: ${data.data.location_name}`,
         });
         const locationSlug =
           data?.data?.location_slug ||
-          toSlug(data?.data?.location_name || formData.locationName || "hidden-gem");
+          toSlug(data?.data?.location_name || "hidden-gem");
 
         navigate(`/location/${locationSlug}`, {
           state: {
             submittedReel: {
-              shortCode: data?.data?.short_code,
+              shortCode,
               reelUrl: formData.reelUrl,
             },
           },
@@ -122,80 +187,41 @@ export function ReelSubmissionForm() {
               id="reelUrl"
               name="reelUrl"
               type="url"
-              placeholder="https://instagram.com/reel/..."
               value={formData.reelUrl}
               onChange={handleChange}
               required
               className="bg-card border-border focus-visible:ring-primary"
             />
-            <p className="text-sm text-muted-foreground">
-              Paste the Instagram or YouTube reel/shorts link
-            </p>
           </div>
 
-          {/* Location Details */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="locationName" className="flex items-center gap-2 text-foreground">
-                <MapPin className="h-4 w-4 text-secondary" />
-                Location Name *
-              </Label>
-              <Input
-                id="locationName"
-                name="locationName"
-                placeholder="e.g., Athirappilly Falls"
-                value={formData.locationName}
-                onChange={handleChange}
-                required
-                className="bg-card border-border focus-visible:ring-primary"
+          {/* Comments */}
+          <div className="space-y-2">
+            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-foreground">Comment Scraper Script</p>
+                <Button type="button" variant="outline" onClick={copyScriptToClipboard}>
+                  Copy Script
+                </Button>
+              </div>
+              <Textarea
+                value={COMMENT_SCRAPER_SCRIPT}
+                readOnly
+                rows={12}
+                className="bg-background border-border font-mono text-xs"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="district" className="flex items-center gap-2 text-foreground">
-                <MapPin className="h-4 w-4 text-secondary" />
-                District
-              </Label>
-              <Input
-                id="district"
-                name="district"
-                placeholder="e.g., Thrissur"
-                value={formData.district}
-                onChange={handleChange}
-                className="bg-card border-border focus-visible:ring-primary"
-              />
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-2">
-            <Label htmlFor="tags" className="flex items-center gap-2 text-foreground">
-              <Tag className="h-4 w-4 text-secondary" />
-              Tags
-            </Label>
-            <Input
-              id="tags"
-              name="tags"
-              placeholder="waterfall, nature, trekking (comma separated)"
-              value={formData.tags}
-              onChange={handleChange}
-              className="bg-card border-border focus-visible:ring-primary"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description" className="flex items-center gap-2 text-foreground">
-              <FileText className="h-4 w-4 text-secondary" />
-              Your Experience (Optional)
+            <Label htmlFor="commentsText" className="flex items-center gap-2 text-foreground">
+              <MessageSquareText className="h-4 w-4 text-secondary" />
+              Paste Comments
             </Label>
             <Textarea
-              id="description"
-              name="description"
-              placeholder="Share any tips, best time to visit, or your experience..."
-              value={formData.description}
+              id="commentsText"
+              name="commentsText"
+              value={formData.commentsText}
               onChange={handleChange}
-              rows={4}
+              required
+              rows={8}
               className="bg-card border-border focus-visible:ring-primary resize-none"
             />
           </div>
