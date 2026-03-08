@@ -128,7 +128,7 @@ const Index = () => {
             <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background" />
           </div>
 
-          <div className="relative z-10 container mx-auto px-4 py-16 md:py-24">
+          <div className="relative z-10 container mx-auto px-4 py-12 md:py-16">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary mb-6">
                 <Sparkles className="h-4 w-4" />
@@ -169,10 +169,10 @@ const Index = () => {
         </section>
 
         {/* How It Works */}
-        <section className="py-10 md:py-12 border-b border-border bg-background">
+        <section className="py-8 md:py-10 border-b border-border bg-background">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto">
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-muted/40 px-6 py-7 md:px-10 md:py-9 shadow-sm">
+              <div className="-mt-[55px] relative overflow-hidden rounded-2xl bg-transparent px-6 py-7 md:px-10 md:py-9">
                 <div className="absolute -top-14 -right-10 h-36 w-36 rounded-full bg-primary/10 blur-3xl" />
                 <div className="absolute -bottom-16 -left-8 h-32 w-32 rounded-full bg-secondary/10 blur-3xl" />
 
@@ -180,16 +180,19 @@ const Index = () => {
                   <p className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold tracking-wide text-primary mb-3">
                     HOW IT WORKS
                   </p>
-                  <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-3">
-                    Use ReelScout in One Flow
-                  </h2>
-                  <p className="text-sm md:text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-                    Travelers submit reels to grow shared location data. Anyone can then discover places, key facts, and visuals through the chatbot or by browsing map pages manually.
-                  </p>
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs">
-                    <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-foreground">Submit reels</span>
-                    <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-foreground">Ask chatbot</span>
-                    <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-foreground">Browse map pages</span>
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-left">
+                    <div className="rounded-xl border border-border/60 bg-background/30 px-3 py-2 backdrop-blur-sm">
+                      <p className="font-semibold text-foreground">Contribute</p>
+                      <p className="text-muted-foreground mt-1">Submit reels to grow shared destination intel.</p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-background/30 px-3 py-2 backdrop-blur-sm">
+                      <p className="font-semibold text-foreground">Discover</p>
+                      <p className="text-muted-foreground mt-1">Find places through the chatbot or interactive map.</p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-background/30 px-3 py-2 backdrop-blur-sm">
+                      <p className="font-semibold text-foreground">Plan</p>
+                      <p className="text-muted-foreground mt-1">Use data to plan your trip.</p>
+                    </div>
                   </div>
                 </div>
               </div>
