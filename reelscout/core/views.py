@@ -6,6 +6,7 @@ from .services import get_or_process_reel
 from .models import ScrapedReel, Location, LocationRevision
 from rest_framework import generics
 from .serializers import LocationSerializer
+from core.rag.rag_pipeline import run_rag
 
 def home(request):
     return render(request, 'core/index.html')
@@ -180,4 +181,36 @@ def add_location_note(request, slug):
             "comment": revision.comment,
             "created_at": revision.created_at,
         }
+    })
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([])
+def chat(request):
+
+    query = request.data.get("message")
+
+    if not query:
+        return Response({"error": "Message is required"}, status=400)
+
+    result = run_rag(query)
+
+    reels = result["reels"]
+
+    reel_results = []
+
+    for reel in reels:
+        reel_results.append({
+            "short_code": reel.short_code,
+            "summary": reel.ai_summary,
+            "caption": reel.raw_caption,
+            "location": reel.location.name if reel.location else None,
+            "district": reel.location.district if reel.location else None,
+            "thumbnail": reel.thumbnail_url
+        })
+
+    return Response({
+        "answer": result["answer"],
+        "results": reel_results
     })

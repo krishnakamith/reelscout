@@ -9,6 +9,7 @@ from apify_client import ApifyClient
 from .models import ScrapedReel, ReelFrame, Location
 from .video_engine import VideoEngine
 from .gemini_service import GeminiService
+from core.rag.index_updater import add_reel_to_index
 
 def extract_shortcode(url):
     match = re.search(r'/(?:reel|p)/([^/?#&]+)', url)
@@ -266,6 +267,11 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                 reel.selected_frame_timestamps = selected_frame_timestamps
                 reel.is_processed = True
                 reel.save()
+
+                reel.is_processed = True
+                reel.save()
+
+                add_reel_to_index(reel)
 
                 print(f"✅ TRANSCRIPT: {reel.transcript_text[:50]}...")
                 print(f"📍 LINKED TO LOCATION: {reel.location.name if reel.location else 'None'}")

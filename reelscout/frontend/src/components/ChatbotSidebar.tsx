@@ -14,7 +14,8 @@ interface Message {
 const initialMessages: Message[] = [
   {
     id: "1",
-    content: "Hello! I'm your ReelScout travel assistant. Ask me about hidden gems in Kerala, travel tips, or help finding the perfect destination!",
+    content:
+      "Hello! I'm your ReelScout travel assistant. Ask me about hidden gems in Kerala, travel tips, or help finding destinations!",
     sender: "bot",
     timestamp: new Date(),
   },
@@ -29,6 +30,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (typeof externalOpenTrigger === "number" && externalOpenTrigger > 0) {
@@ -36,7 +38,29 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
     }
   }, [externalOpenTrigger]);
 
-  const handleSendMessage = () => {
+  // Call Django RAG API
+  async function askBackend(message: string) {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/chat/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await response.json();
+
+      return data;
+    } catch (error) {
+      console.error("Chat API error:", error);
+      return {
+        answer: "Sorry, something went wrong contacting the server.",
+      };
+    }
+  }
+
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -47,26 +71,22 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+
+    const query = inputValue;
     setInputValue("");
+    setLoading(true);
 
-    // Simulate bot response
-    setTimeout(() => {
-      const botResponses = [
-        "Great question! Munnar is famous for its tea plantations and misty mountains. Best time to visit is September to March.",
-        "I'd recommend checking out Athirappilly Falls - it's known as the 'Niagara of India'. The monsoon season offers the most spectacular views!",
-        "For off-beat destinations, try Wayanad's hidden waterfalls or the quiet backwaters of Kumarakom. These spots have fewer tourists!",
-        "Based on recent reels, Varkala's cliff-side beaches are trending right now. Perfect for sunset watching!",
-      ];
+    const result = await askBackend(query);
 
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: botResponses[Math.floor(Math.random() * botResponses.length)],
-        sender: "bot",
-        timestamp: new Date(),
-      };
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      content: result.answer || "I couldn't find anything.",
+      sender: "bot",
+      timestamp: new Date(),
+    };
 
-      setMessages((prev) => [...prev, botMessage]);
-    }, 1000);
+    setMessages((prev) => [...prev, botMessage]);
+    setLoading(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -96,6 +116,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
       }`}
     >
       <div className="flex flex-col h-full bg-card border border-border rounded-2xl shadow-lg overflow-hidden animate-scale-in">
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 bg-gradient-hero text-primary-foreground">
           <div className="flex items-center gap-3">
@@ -107,6 +128,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
               <p className="text-xs opacity-80">Your travel guide to Kerala</p>
             </div>
           </div>
+
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -120,6 +142,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
                 <Maximize2 className="h-4 w-4" />
               )}
             </Button>
+
             <Button
               variant="ghost"
               size="icon"
@@ -134,6 +157,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
         {/* Messages */}
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
+
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -154,6 +178,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
                     <Bot className="h-4 w-4" />
                   )}
                 </div>
+
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                     message.sender === "user"
@@ -165,19 +190,28 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
                 </div>
               </div>
             ))}
+
+            {loading && (
+              <div className="text-sm text-muted-foreground">
+                Assistant is thinking...
+              </div>
+            )}
+
           </div>
         </ScrollArea>
 
         {/* Input */}
         <div className="p-4 border-t border-border bg-background">
           <div className="flex gap-2">
+
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="Ask about Kerala destinations..."
               className="flex-1 bg-muted border-0 focus-visible:ring-1 focus-visible:ring-primary"
             />
+
             <Button
               onClick={handleSendMessage}
               className="bg-primary hover:bg-primary/90"
@@ -185,8 +219,10 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
             >
               <Send className="h-4 w-4" />
             </Button>
+
           </div>
         </div>
+
       </div>
     </div>
   );
