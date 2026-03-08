@@ -8,8 +8,10 @@ from rest_framework import generics
 from .serializers import LocationSerializer
 from core.rag.rag_pipeline import run_rag
 
+
 def home(request):
     return render(request, 'core/index.html')
+
 
 def _parse_ranked_comment(comment_text):
     if not isinstance(comment_text, str):
@@ -24,6 +26,7 @@ def _parse_ranked_comment(comment_text):
         "age": match.group(2),
         "text": match.group(3).strip(),
     }
+
 
 def location_detail(request, slug):
     location = get_object_or_404(Location, slug=slug)
@@ -57,14 +60,19 @@ def location_detail(request, slug):
         },
     )
 
+
 @api_view(['POST'])
 def search_reel(request):
     url = request.data.get('url')
     raw_comments = request.data.get('comments', [])
-    if not url: return Response({"error": "URL is required"}, status=400)
+
+    if not url:
+        return Response({"error": "URL is required"}, status=400)
+
     try:
         prepared_comments = clean_and_rank_comments(raw_comments)
         reel = get_or_process_reel(url, prepared_comments=prepared_comments)
+
         return Response({
             "status": "success",
             "data": {
@@ -75,79 +83,118 @@ def search_reel(request):
                 "comments_count": len(reel.comments_dump or []),
             }
         })
+
     except Exception as e:
         return Response({"error": str(e)}, status=500)
 
+
 def clean_and_rank_comments(raw_list):
+
     if isinstance(raw_list, str):
         raw_list = raw_list.splitlines()
+
     if not isinstance(raw_list, list):
         raw_list = []
 
     cleaned_comments = []
     date_pattern = re.compile(r'^\d+[wdhm]$')
     likes_pattern = re.compile(r'^([\d,]+)\s+likes?$')
-    junk_words = ["Reply", "See translation", "View all", "Hidden", "Original audio", "Comments"]
+
+    junk_words = [
+        "Reply", "See translation", "View all",
+        "Hidden", "Original audio", "Comments"
+    ]
+
     pending_date = "Unknown"
 
     for item in raw_list:
+
         if item is None:
             continue
+
         item = str(item).strip()
-        if not item: continue
+
+        if not item:
+            continue
+
         if date_pattern.match(item):
             pending_date = item
             continue
+
         likes_match = likes_pattern.match(item)
+
         if likes_match:
             if cleaned_comments:
-                cleaned_comments[-1]['likes'] = int(likes_match.group(1).replace(',', ''))
+                cleaned_comments[-1]['likes'] = int(
+                    likes_match.group(1).replace(',', '')
+                )
             continue
-        if any(j.lower() in item.lower() for j in junk_words): continue
-        if " " not in item and len(item) < 15 and item.islower(): continue
 
-        cleaned_comments.append({'text': item, 'likes': 0, 'date': pending_date})
+        if any(j.lower() in item.lower() for j in junk_words):
+            continue
+
+        if " " not in item and len(item) < 15 and item.islower():
+            continue
+
+        cleaned_comments.append({
+            'text': item,
+            'likes': 0,
+            'date': pending_date
+        })
+
         pending_date = "Unknown"
 
     cleaned_comments.sort(key=lambda x: x['likes'], reverse=True)
-    return [f"[SCORE: {c['likes']}] ({c['date']}) {c['text']}" for c in cleaned_comments]
+
+    return [
+        f"[SCORE: {c['likes']}] ({c['date']}) {c['text']}"
+        for c in cleaned_comments
+    ]
+
 
 @api_view(['POST'])
-@authentication_classes([]) 
-@permission_classes([])     
+@authentication_classes([])
+@permission_classes([])
 def save_comments_from_browser(request):
+
     short_code = request.data.get('short_code')
     raw_comments = request.data.get('comments', [])
-    if not short_code: return Response({"error": "Missing short_code"}, status=400)
-        
+
+    if not short_code:
+        return Response({"error": "Missing short_code"}, status=400)
+
     try:
+
         reel = ScrapedReel.objects.get(short_code=short_code)
         reel.comments_dump = clean_and_rank_comments(raw_comments)
         reel.save()
-        
+
         return Response({
-            "status": "success", 
+            "status": "success",
             "count": len(reel.comments_dump),
             "location_slug": reel.location.slug if reel.location else None
         })
+
     except ScrapedReel.DoesNotExist:
         return Response({"error": "Reel not found"}, status=404)
-    
-    # This window serves a list of ALL locations (useful for your map page later)
+
+
 class LocationListAPI(generics.ListAPIView):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
 
-# This window serves the details of exactly ONE location (for the detail page)
+
 class LocationDetailAPI(generics.RetrieveAPIView):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     lookup_field = 'slug'
 
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([])
 def add_location_note(request, slug):
+
     location = get_object_or_404(Location, slug=slug)
 
     note = str(request.data.get('note', '')).strip()
@@ -184,33 +231,48 @@ def add_location_note(request, slug):
     })
 
 
+# -------------------------------
+# CHATBOT ENDPOINT
+# -------------------------------
+
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def chat(request):
 
     query = request.data.get("message")
+    history = request.data.get("history", [])
 
     if not query:
-        return Response({"error": "Message is required"}, status=400)
+        return Response({"error": "Message required"}, status=400)
 
-    result = run_rag(query)
+    result = run_rag(query, history)
 
     reels = result["reels"]
+    recommended_locations = result["locations"]
 
-    reel_results = []
+    reel_data = []
 
-    for reel in reels:
-        reel_results.append({
-            "short_code": reel.short_code,
-            "summary": reel.ai_summary,
-            "caption": reel.raw_caption,
-            "location": reel.location.name if reel.location else None,
-            "district": reel.location.district if reel.location else None,
-            "thumbnail": reel.thumbnail_url
-        })
+    # Only show cards for Gemini recommended locations
+    for loc in recommended_locations[:5]:
+
+        for reel in reels:
+
+            if reel.location and reel.location.name == loc.get("name"):
+
+                reel_data.append({
+                    "location": reel.location.name,
+                    "district": reel.location.district,
+                    "summary": reel.ai_summary,
+                    "short_code": reel.short_code,
+                    "lat": reel.location.latitude,
+                    "lng": reel.location.longitude
+                })
+
+                break
 
     return Response({
         "answer": result["answer"],
-        "results": reel_results
+        "locations": recommended_locations,
+        "results": reel_data
     })

@@ -4,11 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+interface ReelResult {
+  location?: string;
+  district?: string;
+  summary?: string;
+  short_code?: string;
+  lat?: number;
+  lng?: number;
+}
+
 interface Message {
   id: string;
   content: string;
   sender: "user" | "bot";
   timestamp: Date;
+  results?: ReelResult[];
 }
 
 const initialMessages: Message[] = [
@@ -23,9 +33,14 @@ const initialMessages: Message[] = [
 
 interface ChatbotSidebarProps {
   externalOpenTrigger?: number;
+  onLocationsDetected?: (locations: ReelResult[]) => void;
 }
 
-export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
+export function ChatbotSidebar({
+  externalOpenTrigger,
+  onLocationsDetected
+}: ChatbotSidebarProps) {
+
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -38,29 +53,38 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
     }
   }, [externalOpenTrigger]);
 
-  // Call Django RAG API
-  async function askBackend(message: string) {
+  async function askBackend(message: string, history: string[]) {
+
     try {
+
       const response = await fetch("http://127.0.0.1:8000/api/chat/", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          history
+        })
       });
 
       const data = await response.json();
 
       return data;
+
     } catch (error) {
+
       console.error("Chat API error:", error);
+
       return {
         answer: "Sorry, something went wrong contacting the server.",
+        results: []
       };
     }
   }
 
   const handleSendMessage = async () => {
+
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -70,22 +94,36 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+
+    setMessages(updatedMessages);
 
     const query = inputValue;
+
     setInputValue("");
     setLoading(true);
 
-    const result = await askBackend(query);
+    const history = updatedMessages.map(
+      (m) => `${m.sender}: ${m.content}`
+    );
+
+    const result = await askBackend(query, history);
 
     const botMessage: Message = {
       id: (Date.now() + 1).toString(),
       content: result.answer || "I couldn't find anything.",
       sender: "bot",
       timestamp: new Date(),
+      results: result.results || []
     };
 
     setMessages((prev) => [...prev, botMessage]);
+
+    // 🔥 Send locations to map
+    if (onLocationsDetected && result.results) {
+      onLocationsDetected(result.results);
+    }
+
     setLoading(false);
   };
 
@@ -108,6 +146,7 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
   }
 
   return (
+
     <div
       className={`fixed z-50 transition-all duration-300 ease-out ${
         isMaximized
@@ -115,32 +154,36 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
           : "bottom-6 right-6 w-[380px] h-[500px]"
       }`}
     >
+
       <div className="flex flex-col h-full bg-card border border-border rounded-2xl shadow-lg overflow-hidden animate-scale-in">
 
         {/* Header */}
         <div className="flex items-center justify-between p-4 bg-gradient-hero text-primary-foreground">
+
           <div className="flex items-center gap-3">
+
             <div className="w-10 h-10 rounded-full bg-primary-foreground/20 flex items-center justify-center">
               <Bot className="h-5 w-5" />
             </div>
+
             <div>
               <h3 className="font-display font-semibold">ReelScout Assistant</h3>
               <p className="text-xs opacity-80">Your travel guide to Kerala</p>
             </div>
+
           </div>
 
           <div className="flex items-center gap-1">
+
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsMaximized(!isMaximized)}
               className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
             >
-              {isMaximized ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
+              {isMaximized
+                ? <Minimize2 className="h-4 w-4" />
+                : <Maximize2 className="h-4 w-4" />}
             </Button>
 
             <Button
@@ -151,20 +194,25 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
             >
               <X className="h-4 w-4" />
             </Button>
+
           </div>
+
         </div>
 
         {/* Messages */}
         <ScrollArea className="flex-1 p-4">
+
           <div className="space-y-4">
 
             {messages.map((message) => (
+
               <div
                 key={message.id}
                 className={`flex gap-3 ${
                   message.sender === "user" ? "flex-row-reverse" : ""
                 }`}
               >
+
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                     message.sender === "user"
@@ -172,11 +220,9 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
                       : "bg-primary text-primary-foreground"
                   }`}
                 >
-                  {message.sender === "user" ? (
-                    <User className="h-4 w-4" />
-                  ) : (
-                    <Bot className="h-4 w-4" />
-                  )}
+                  {message.sender === "user"
+                    ? <User className="h-4 w-4" />
+                    : <Bot className="h-4 w-4" />}
                 </div>
 
                 <div
@@ -186,9 +232,44 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
                       : "bg-muted text-foreground rounded-bl-md"
                   }`}
                 >
+
                   <p className="text-sm leading-relaxed">{message.content}</p>
+
+                  {message.results && message.results.length > 0 && (
+
+                    <div className="mt-3 space-y-2">
+
+                      {message.results.map((place, index) => (
+
+                        <div
+                          key={index}
+                          className="bg-background border rounded-lg p-3 text-xs"
+                        >
+
+                          <div className="font-semibold">
+                            {place.location}
+                          </div>
+
+                          <div className="text-muted-foreground">
+                            {place.district}
+                          </div>
+
+                          <p className="mt-1 text-xs">
+                            {place.summary}
+                          </p>
+
+                        </div>
+
+                      ))}
+
+                    </div>
+
+                  )}
+
                 </div>
+
               </div>
+
             ))}
 
             {loading && (
@@ -198,10 +279,12 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
             )}
 
           </div>
+
         </ScrollArea>
 
         {/* Input */}
         <div className="p-4 border-t border-border bg-background">
+
           <div className="flex gap-2">
 
             <Input
@@ -221,9 +304,11 @@ export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
             </Button>
 
           </div>
+
         </div>
 
       </div>
+
     </div>
   );
 }

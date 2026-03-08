@@ -12,6 +12,6 @@ def embed_text(text: str):
     if not text:
         text = ""
 
-    embedding = model.encode(text)
+    embedding = model.encode(text, normalize_embeddings=True)
 
     return np.array(embedding)
