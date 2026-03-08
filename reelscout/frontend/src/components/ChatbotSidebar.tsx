@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageCircle, X, Maximize2, Minimize2, Send, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,11 +20,21 @@ const initialMessages: Message[] = [
   },
 ];
 
-export function ChatbotSidebar() {
+interface ChatbotSidebarProps {
+  externalOpenTrigger?: number;
+}
+
+export function ChatbotSidebar({ externalOpenTrigger }: ChatbotSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
+
+  useEffect(() => {
+    if (typeof externalOpenTrigger === "number" && externalOpenTrigger > 0) {
+      setIsOpen(true);
+    }
+  }, [externalOpenTrigger]);
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;

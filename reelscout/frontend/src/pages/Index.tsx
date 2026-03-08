@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { MapPin, Plus, Sparkles, Film, Compass } from "lucide-react";
+import { MapPin, Plus, Sparkles, Film, Compass, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KeralaMap } from "@/components/KeralaMap";
 import { ChatbotSidebar } from "@/components/ChatbotSidebar";
@@ -12,6 +12,7 @@ const Index = () => {
   const hasAutoScrolledRef = useRef(false);
   const [locationsCount, setLocationsCount] = useState<number | null>(null);
   const [reelsCount, setReelsCount] = useState<number | null>(null);
+  const [chatOpenTrigger, setChatOpenTrigger] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -79,13 +80,23 @@ const Index = () => {
             </div>
             <span className="font-display font-bold text-xl text-foreground">ReelScout</span>
           </div>
-          <Button
-            onClick={() => navigate("/contribute")}
-            className="bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Contribute Reel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setChatOpenTrigger((prev) => prev + 1)}
+              className="gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Chatbot
+            </Button>
+            <Button
+              onClick={() => navigate("/contribute")}
+              className="bg-gradient-accent text-primary-foreground hover:opacity-90 transition-opacity gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Contribute Reel
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -253,7 +264,7 @@ const Index = () => {
       </footer>
 
       {/* Chatbot */}
-      <ChatbotSidebar />
+      <ChatbotSidebar externalOpenTrigger={chatOpenTrigger} />
     </div>
   );
 };
