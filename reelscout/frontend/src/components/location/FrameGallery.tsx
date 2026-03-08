@@ -1,3 +1,4 @@
+﻿import { useState } from "react";
 import { Camera } from "lucide-react";
 import {
   Carousel,
@@ -6,6 +7,7 @@ import {
   CarouselPrevious,
   CarouselNext,
 } from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface GalleryFrame {
   src: string;
@@ -19,6 +21,8 @@ interface FrameGalleryProps {
 }
 
 const FrameGallery = ({ frames = [] }: FrameGalleryProps) => {
+  const [expandedFrame, setExpandedFrame] = useState<GalleryFrame | null>(null);
+
   return (
     <section className="py-16 sm:py-20 bg-secondary/40">
       <div className="section-container">
@@ -33,28 +37,49 @@ const FrameGallery = ({ frames = [] }: FrameGalleryProps) => {
             No selected frames available yet.
           </div>
         ) : (
-          <Carousel opts={{ align: "start", loop: true }} className="w-full">
-            <CarouselContent className="-ml-4">
-              {frames.map((frame, i) => (
-                <CarouselItem key={`${frame.src}-${i}`} className="pl-4 basis-4/5 sm:basis-1/2 md:basis-1/3">
-                  <div className="masonry-item overflow-hidden rounded-xl">
-                    <img
-                      src={frame.src}
-                      alt={frame.alt}
-                      className="w-full h-64 sm:h-80 object-cover rounded-xl transition-transform duration-500 ease-out hover:scale-105"
-                      loading="lazy"
-                    />
-                    <div className="px-1 pt-2 text-xs text-muted-foreground">
-                      {frame.reelShortCode ? `Reel ${frame.reelShortCode}` : "Reel Frame"}
-                      {typeof frame.timestamp === "number" ? ` · ${frame.timestamp.toFixed(1)}s` : ""}
+          <Dialog>
+            <Carousel opts={{ align: "start", loop: true }} className="w-full">
+              <CarouselContent className="-ml-4">
+                {frames.map((frame, i) => (
+                  <CarouselItem key={`${frame.src}-${i}`} className="pl-4 basis-[72%] sm:basis-[56%] md:basis-[42%]">
+                    <div className="masonry-item overflow-hidden rounded-xl">
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="group block w-full rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          onClick={() => setExpandedFrame(frame)}
+                        >
+                          <img
+                            src={frame.src}
+                            alt={frame.alt}
+                            className="w-full h-[24rem] sm:h-[30rem] object-cover rounded-xl transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+                            loading="lazy"
+                          />
+                        </button>
+                      </DialogTrigger>
+                      <div className="px-1 pt-2 text-xs text-muted-foreground">
+                        {frame.reelShortCode ? `Reel ${frame.reelShortCode}` : "Reel Frame"}
+                        {typeof frame.timestamp === "number" ? ` · ${frame.timestamp.toFixed(1)}s` : ""}
+                        <span className="ml-2 text-primary">Expand</span>
+                      </div>
                     </div>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="-left-4 sm:-left-5 bg-card border-border text-foreground" />
-            <CarouselNext className="-right-4 sm:-right-5 bg-card border-border text-foreground" />
-          </Carousel>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="-left-4 sm:-left-5 bg-card border-border text-foreground" />
+              <CarouselNext className="-right-4 sm:-right-5 bg-card border-border text-foreground" />
+            </Carousel>
+            <DialogContent className="max-w-5xl w-[95vw] border-0 bg-transparent p-0 shadow-none">
+              <DialogTitle className="sr-only">{expandedFrame?.alt ?? "Expanded frame"}</DialogTitle>
+              {expandedFrame ? (
+                <img
+                  src={expandedFrame.src}
+                  alt={expandedFrame.alt}
+                  className="max-h-[88vh] w-full rounded-xl object-contain bg-black/80"
+                />
+              ) : null}
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </section>
@@ -62,3 +87,4 @@ const FrameGallery = ({ frames = [] }: FrameGalleryProps) => {
 };
 
 export default FrameGallery;
+
