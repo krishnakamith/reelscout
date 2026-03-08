@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { MapPin, Plus, Sparkles, Film, Compass, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,18 +56,33 @@ const Index = () => {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const shouldScrollToMap = (location.state as { scrollToMap?: boolean } | null)?.scrollToMap === true;
+    if (!shouldScrollToMap) {
+      const previousScrollRestoration = window.history.scrollRestoration;
+      window.history.scrollRestoration = "manual";
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      const timer = window.setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }, 0);
+      return () => {
+        window.clearTimeout(timer);
+        window.history.scrollRestoration = previousScrollRestoration;
+      };
+    }
+  }, []);
+
   useEffect(() => {
-    const shouldScroll =
-      (location.state as { scrollToMap?: boolean } | null)?.scrollToMap ||
-      location.hash === "#map-section";
+    const shouldScroll = (location.state as { scrollToMap?: boolean } | null)?.scrollToMap === true;
 
     if (!shouldScroll || hasAutoScrolledRef.current) return;
 
     hasAutoScrolledRef.current = true;
     setTimeout(() => {
       document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      navigate(location.pathname, { replace: true, state: null });
     }, 50);
-  }, [location.state, location.hash]);
+  }, [location.state, location.pathname, navigate]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,6 +163,35 @@ const Index = () => {
                   <MapPin className="h-5 w-5" />
                   Explore Map
                 </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section className="py-10 md:py-12 border-b border-border bg-background">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-muted/40 px-6 py-7 md:px-10 md:py-9 shadow-sm">
+                <div className="absolute -top-14 -right-10 h-36 w-36 rounded-full bg-primary/10 blur-3xl" />
+                <div className="absolute -bottom-16 -left-8 h-32 w-32 rounded-full bg-secondary/10 blur-3xl" />
+
+                <div className="relative z-10 text-center">
+                  <p className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold tracking-wide text-primary mb-3">
+                    HOW IT WORKS
+                  </p>
+                  <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-3">
+                    Use ReelScout in One Flow
+                  </h2>
+                  <p className="text-sm md:text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                    Travelers submit reels to grow shared location data. Anyone can then discover places, key facts, and visuals through the chatbot or by browsing map pages manually.
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs">
+                    <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-foreground">Submit reels</span>
+                    <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-foreground">Ask chatbot</span>
+                    <span className="rounded-full border border-border bg-background/80 px-3 py-1 text-foreground">Browse map pages</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
