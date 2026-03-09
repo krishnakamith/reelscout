@@ -14,7 +14,7 @@ class GeminiService:
 
         genai.configure(api_key=api_key)
         # Updated to the model available in your list
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.model = genai.GenerativeModel('gemini-3-flash-preview')
 
     def upload_audio(self, audio_path):
         # DEBUG: Print exactly where we are looking
