@@ -2,6 +2,7 @@ import re
 import requests
 import json
 import time
+from difflib import SequenceMatcher
 from datetime import datetime
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -20,6 +21,96 @@ def extract_shortcode(url):
 
 def _as_dict(value):
     return value if isinstance(value, dict) else {}
+
+def _normalize_location_name(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    token_map = {
+        "falls": "waterfall",
+        "fall": "waterfall",
+        "waterfalls": "waterfall",
+        "st": "saint",
+        "mt": "mount",
+    }
+    tokens = [token_map.get(token, token) for token in text.split()]
+    return " ".join(tokens)
+
+def _clean_aliases(aliases, canonical_name=None):
+    names = aliases if isinstance(aliases, list) else []
+    canonical_norm = _normalize_location_name(canonical_name)
+    cleaned = []
+    seen = set()
+
+    for raw_name in names:
+        name = str(raw_name or "").strip()
+        if not name:
+            continue
+
+        norm = _normalize_location_name(name)
+        if not norm or norm == canonical_norm or norm in seen:
+            continue
+
+        seen.add(norm)
+        cleaned.append(name)
+
+    return cleaned
+
+def _merge_aliases(existing_aliases, new_aliases, canonical_name=None):
+    merged = list(existing_aliases or []) + list(new_aliases or [])
+    return _clean_aliases(merged, canonical_name=canonical_name)
+
+def _iter_location_name_variants(location):
+    variants = [location.name]
+    if isinstance(location.alternate_names, list):
+        variants.extend(location.alternate_names)
+    return variants
+
+def _find_location_by_any_name(target_name, district=None):
+    target_norm = _normalize_location_name(target_name)
+    if not target_norm:
+        return None
+
+    all_locations = list(Location.objects.all())
+
+    # 1) Exact normalized match against canonical + alternate names.
+    for location in all_locations:
+        for variant in _iter_location_name_variants(location):
+            if _normalize_location_name(variant) == target_norm:
+                return location
+
+    # 2) Fuzzy fallback for minor name variations.
+    best_match = None
+    best_score = 0.0
+    district_norm = str(district or "").strip().lower()
+
+    for location in all_locations:
+        same_district = bool(
+            district_norm
+            and location.district
+            and location.district.strip().lower() == district_norm
+        )
+        threshold = 0.86 if same_district else 0.91
+
+        for variant in _iter_location_name_variants(location):
+            variant_norm = _normalize_location_name(variant)
+            if not variant_norm:
+                continue
+
+            score = SequenceMatcher(None, target_norm, variant_norm).ratio()
+            if (
+                (target_norm in variant_norm or variant_norm in target_norm)
+                and min(len(target_norm), len(variant_norm)) >= 8
+            ):
+                score = max(score, 0.90)
+
+            if score >= threshold and score > best_score:
+                best_match = location
+                best_score = score
+
+    return best_match
 
 def _merge_dynamic_data(current, incoming):
     merged = _as_dict(current).copy()
@@ -187,21 +278,45 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
                 if loc_name:
                     resolved_category = category or _infer_category(loc_name) or "Uncategorized"
-                    location_obj, loc_created = Location.objects.get_or_create(
-                        name=loc_name,
-                        defaults={
-                            'category': resolved_category,
-                            'district': district,
-                            'specific_area': specific_area,
-                            'latitude': data.get('latitude'),
-                            'longitude': data.get('longitude'),
-                            'general_info': general_info,
-                            'known_facts': known_facts,
-                        }
+                    discovered_aliases = _clean_aliases(
+                        [loc_name, reel.instagram_location_name],
+                        canonical_name=loc_name,
                     )
+
+                    location_obj = _find_location_by_any_name(loc_name, district=district)
+                    if not location_obj and reel.instagram_location_name:
+                        location_obj = _find_location_by_any_name(
+                            reel.instagram_location_name,
+                            district=district,
+                        )
+
+                    if not location_obj:
+                        location_obj = Location.objects.create(
+                            name=loc_name,
+                            category=resolved_category,
+                            district=district,
+                            specific_area=specific_area,
+                            latitude=data.get('latitude'),
+                            longitude=data.get('longitude'),
+                            general_info=general_info,
+                            known_facts=known_facts,
+                            alternate_names=discovered_aliases,
+                        )
+                        loc_created = True
+                    else:
+                        loc_created = False
 
                     if not loc_created:
                         has_updates = False
+
+                        merged_aliases = _merge_aliases(
+                            location_obj.alternate_names,
+                            [loc_name, reel.instagram_location_name],
+                            canonical_name=location_obj.name,
+                        )
+                        if merged_aliases != (location_obj.alternate_names or []):
+                            location_obj.alternate_names = merged_aliases
+                            has_updates = True
 
                         merged_general_info = _merge_dynamic_data(location_obj.general_info, general_info)
                         if merged_general_info != (location_obj.general_info or {}):

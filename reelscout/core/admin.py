@@ -13,7 +13,7 @@ class LocationAdmin(admin.ModelAdmin):
     # Organize fields into sections for a cleaner view
     fieldsets = (
         ('Basic Info', {
-            'fields': ('name', 'slug', 'category', 'district', 'specific_area')
+            'fields': ('name', 'slug', 'category', 'district', 'specific_area', 'alternate_names')
         }),
         ('Dynamic JSON Data', {
             'fields': ('general_info', 'pretty_general_info', 'known_facts', 'pretty_known_facts')

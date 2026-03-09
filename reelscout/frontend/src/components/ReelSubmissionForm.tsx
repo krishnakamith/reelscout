@@ -80,14 +80,14 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runCommentsOnlyScraper
 
   for (let i = 0; i < 20; i++) {
     const clicks = clickExpandableInRoot(commentsRoot);
-    await sleep(600);
+    await sleep(800);
 
     const before = commentsRoot.scrollTop;
     commentsRoot.scrollTop = Math.min(
       commentsRoot.scrollTop + Math.max(700, commentsRoot.clientHeight * 0.9),
       commentsRoot.scrollHeight
     );
-    await sleep(900);
+    await sleep(1100);
 
     const heightGrew = commentsRoot.scrollHeight > prevHeight + 20;
     const moved = commentsRoot.scrollTop > before;

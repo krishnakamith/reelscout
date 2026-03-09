@@ -8,6 +8,11 @@ class Location(models.Model):
     category = models.CharField(max_length=100, help_text="e.g. Waterfall, Cafe, Beach", null=True, blank=True)
     district = models.CharField(max_length=100, null=True, blank=True)
     specific_area = models.CharField(max_length=150, null=True, blank=True)
+    alternate_names = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Known alternate names/aliases for this location",
+    )
 
     # Dynamic JSON Content
     general_info = models.JSONField(default=dict, blank=True, help_text="Dynamic subjective info and vibes")
