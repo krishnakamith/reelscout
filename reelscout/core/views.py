@@ -152,6 +152,48 @@ def clean_and_rank_comments(raw_list):
     ]
 
 
+def _should_show_location_cards(query):
+    text = str(query or "").strip().lower()
+    if not text:
+        return False
+
+    recommendation_signals = [
+        "recommend",
+        "suggest",
+        "best places",
+        "top places",
+        "top 5",
+        "top 10",
+        "list",
+        "show places",
+        "show locations",
+        "where should",
+        "where can i go",
+        "near me",
+        "nearby places",
+        "map",
+    ]
+
+    detail_signals = [
+        "tell me about",
+        "what is",
+        "how to reach",
+        "entry fee",
+        "timings",
+        "history of",
+        "known facts",
+        "general info",
+    ]
+
+    if any(signal in text for signal in recommendation_signals):
+        return True
+
+    if any(signal in text for signal in detail_signals):
+        return False
+
+    return False
+
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([])
@@ -250,26 +292,28 @@ def chat(request):
 
     reels = result["reels"]
     recommended_locations = result["locations"]
+    show_cards = _should_show_location_cards(query)
 
     reel_data = []
 
-    # Only show cards for Gemini recommended locations
-    for loc in recommended_locations[:5]:
+    if show_cards:
+        # Only show cards for recommendation-style requests.
+        for loc in recommended_locations[:5]:
 
-        for reel in reels:
+            for reel in reels:
 
-            if reel.location and reel.location.name == loc.get("name"):
+                if reel.location and reel.location.name == loc.get("name"):
 
-                reel_data.append({
-                    "location": reel.location.name,
-                    "district": reel.location.district,
-                    "summary": reel.ai_summary,
-                    "short_code": reel.short_code,
-                    "lat": reel.location.latitude,
-                    "lng": reel.location.longitude
-                })
+                    reel_data.append({
+                        "location": reel.location.name,
+                        "district": reel.location.district,
+                        "summary": reel.ai_summary,
+                        "short_code": reel.short_code,
+                        "lat": reel.location.latitude,
+                        "lng": reel.location.longitude
+                    })
 
-                break
+                    break
 
     return Response({
         "answer": result["answer"],

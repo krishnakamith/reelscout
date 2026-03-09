@@ -2,6 +2,239 @@ import json
 
 from .retriever import hybrid_search
 from core.gemini_service import GeminiService
+from core.models import Location
+
+
+def _to_kv_lines(payload):
+    if not isinstance(payload, dict) or not payload:
+        return "None"
+    lines = []
+    for key, value in payload.items():
+        key_text = str(key).strip()
+        value_text = str(value).strip()
+        if not key_text or not value_text:
+            continue
+        lines.append(f"- {key_text}: {value_text}")
+    return "\n".join(lines) if lines else "None"
+
+
+def _format_nearby_places(nearby_places):
+    if not isinstance(nearby_places, list) or not nearby_places:
+        return "None"
+    parts = []
+    for place in nearby_places[:8]:
+        if not isinstance(place, dict):
+            continue
+        name = str(place.get("name", "")).strip()
+        place_type = str(place.get("type", "")).strip()
+        distance = str(place.get("distance", "")).strip()
+        if not name:
+            continue
+        label = name
+        if place_type:
+            label += f" ({place_type})"
+        if distance:
+            label += f" - {distance}"
+        parts.append(label)
+    return ", ".join(parts) if parts else "None"
+
+
+def _tokenize(text):
+    cleaned = "".join(ch.lower() if ch.isalnum() else " " for ch in str(text or ""))
+    return [token for token in cleaned.split() if len(token) >= 3]
+
+
+def _location_match_score(location, query_text, query_tokens):
+    score = 0
+
+    fields = [
+        location.name,
+        location.district,
+        location.specific_area,
+        location.category,
+    ]
+
+    aliases = location.alternate_names if isinstance(location.alternate_names, list) else []
+    fields.extend(aliases[:10])
+
+    searchable_blob = " ".join(
+        [
+            str(location.general_info or {}),
+            str(location.known_facts or {}),
+            str(location.nearby_places or []),
+        ]
+    ).lower()
+
+    for field in fields:
+        value = str(field or "").strip().lower()
+        if not value:
+            continue
+        if value in query_text:
+            score += 8
+        elif any(token in value for token in query_tokens):
+            score += 2
+
+    for token in query_tokens:
+        if token in searchable_blob:
+            score += 1
+
+    return score
+
+
+def _select_relevant_locations(query, reels, limit=8):
+    query_text = str(query or "").strip().lower()
+    query_tokens = _tokenize(query_text)
+
+    scored = []
+    for location in Location.objects.all():
+        score = _location_match_score(location, query_text, query_tokens)
+        if score > 0:
+            scored.append((score, location))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    ranked = [location for _, location in scored[:limit]]
+
+    # Ensure locations present in retrieved reels are included.
+    for reel in reels:
+        if reel.location and reel.location not in ranked:
+            ranked.append(reel.location)
+            if len(ranked) >= limit:
+                break
+
+    return ranked[:limit]
+
+
+def _build_location_context(locations):
+    parts = []
+    for location in locations:
+        if isinstance(location.alternate_names, list) and location.alternate_names:
+            alias_text = ", ".join(str(alias).strip() for alias in location.alternate_names[:8] if str(alias).strip())
+            if not alias_text:
+                alias_text = "None"
+        else:
+            alias_text = "None"
+        block = f"""
+Location: {location.name}
+District: {location.district or ""}
+Specific Area: {location.specific_area or ""}
+Category: {location.category or ""}
+Coordinates: {location.latitude or ""}, {location.longitude or ""}
+Alternate Names: {alias_text}
+General Info:
+{_to_kv_lines(location.general_info)}
+Known Facts:
+{_to_kv_lines(location.known_facts)}
+Nearby Places: {_format_nearby_places(location.nearby_places)}
+"""
+        parts.append(block.strip())
+
+    return "\n\n".join(parts)
+
+
+def _build_reel_context(reels):
+    parts = []
+    for reel in reels:
+        location_name = reel.location.name if reel.location else ""
+        district = reel.location.district if reel.location else ""
+        context = f"""
+Location: {location_name}
+District: {district}
+Summary:
+{reel.ai_summary or ""}
+Caption:
+{reel.raw_caption or ""}
+Transcript:
+{reel.transcript_text or ""}
+"""
+        parts.append(context.strip())
+    return "\n\n".join(parts)
+
+
+def _safe_generate(gemini, prompt):
+    if not hasattr(gemini, "model"):
+        return None
+    try:
+        response = gemini.model.generate_content(prompt)
+        return response.text.strip() if response and response.text else None
+    except Exception:
+        return None
+
+
+def _clean_json_block(text):
+    value = str(text or "").strip()
+    if value.startswith("```"):
+        value = value.replace("```json", "").replace("```", "").strip()
+    return value
+
+
+def _resolve_location_name(name, locations):
+    needle = str(name or "").strip().lower()
+    if not needle:
+        return None
+    for location in locations:
+        if location.name.lower() == needle:
+            return location
+        aliases = location.alternate_names if isinstance(location.alternate_names, list) else []
+        if any(str(alias).strip().lower() == needle for alias in aliases):
+            return location
+    return None
+
+
+def _infer_answer_style(query):
+    text = str(query or "").strip().lower()
+    if not text:
+        return "specific"
+
+    list_signals = [
+        "recommend",
+        "suggest",
+        "best places",
+        "top places",
+        "top 5",
+        "top 10",
+        "list",
+        "show places",
+        "show locations",
+        "nearby",
+        "map",
+    ]
+    detailed_signals = [
+        "all details",
+        "full details",
+        "everything about",
+        "complete guide",
+        "full info",
+        "detailed",
+        "in detail",
+    ]
+
+    if any(signal in text for signal in detailed_signals):
+        return "detailed"
+    if any(signal in text for signal in list_signals):
+        return "list"
+    return "specific"
+
+
+def _limit_specific_answer(answer):
+    text = str(answer or "").strip()
+    if not text:
+        return text
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) > 1 and any(line.startswith(("-", "*", "1.", "2.", "3.")) for line in lines):
+        concise_lines = []
+        for line in lines:
+            if line.startswith(("-", "*", "1.", "2.", "3.")):
+                concise_lines.append(line)
+            if len(concise_lines) >= 2:
+                break
+        if concise_lines:
+            return " ".join(concise_lines)
+
+    sentence_candidates = [segment.strip() for segment in text.replace("\n", " ").split(".") if segment.strip()]
+    if not sentence_candidates:
+        return text
+    return ". ".join(sentence_candidates[:2]) + "."
 
 
 def run_rag(query, history=None):
@@ -13,65 +246,56 @@ def run_rag(query, history=None):
     # Convert conversation history into text
     conversation_context = "\n".join(history)
 
-    # Retrieve relevant reels using hybrid search
-    reels = hybrid_search(query)
-    if not reels:
-        return {
-            "answer": "I couldn't find any relevant locations in the current ReelScout database for that question.",
-            "locations": [],
-            "reels": []
-        }
+    # Retrieve relevant reels and related locations
+    try:
+        reels = hybrid_search(query)
+    except Exception:
+        reels = []
+    relevant_locations = _select_relevant_locations(query, reels)
 
-    if len(reels) < 2:
-        return {
-            "answer": "I currently have very limited reel data. Try adding more reels or ask about a specific location already discovered.",
-            "locations": [],
-            "reels": []
-        }
+    # Add one representative reel per relevant location when semantic retrieval misses it.
+    context_reels = list(reels)
+    seen_reel_ids = {reel.id for reel in context_reels}
+    for location in relevant_locations:
+        candidate = location.reels.order_by("-posted_at", "-created_at").first()
+        if candidate and candidate.id not in seen_reel_ids:
+            context_reels.append(candidate)
+            seen_reel_ids.add(candidate.id)
+        if len(context_reels) >= 8:
+            break
 
-    context_parts = []
-
-    for reel in reels:
-
-        location_name = reel.location.name if reel.location else ""
-        district = reel.location.district if reel.location else ""
-
-        context = f"""
-Location: {location_name}
-District: {district}
-
-Summary:
-{reel.ai_summary}
-
-Caption:
-{reel.raw_caption}
-
-Transcript:
-{reel.transcript_text}
-"""
-
-        context_parts.append(context)
-
-    full_context = "\n\n".join(context_parts)
+    reel_context = _build_reel_context(context_reels[:8])
+    location_context = _build_location_context(relevant_locations[:8])
+    answer_style = _infer_answer_style(query)
 
     prompt = f"""
-    You are ReelScout, an AI travel discovery assistant for Kerala.
+    You are ReelScout, an AI travel discovery assistant.
 
-    You MUST answer ONLY using the provided context from the ReelScout database.
+    Priority:
+    1) Use ReelScout database context first, especially Known Facts and General Info.
+    2) If the user's location is not in the database, you MAY answer with concise general travel knowledge.
+    3) When using knowledge outside the ReelScout database, clearly say it is "general knowledge".
 
-    STRICT RULES:
-    - If the answer cannot be found in the context, respond with:
-    "I couldn't find this in the ReelScout database yet."
-    - DO NOT use any outside knowledge.
-    - DO NOT invent locations.
-    - DO NOT create travel plans unless the locations appear in the context.
-    - ONLY recommend locations that appear in the context.
+    Response rules:
+    - Keep answers practical and accurate.
+    - Prefer locations available in ReelScout context for recommendations.
+    - Do not invent ReelScout-specific details that are absent from context.
+    - Answer style mode: {answer_style}
+    - IMPORTANT: Answer ONLY what the user asked. Do not dump full database details.
+    - For "specific" mode: maximum 2 short sentences and only the requested point.
+    - For "list" mode: concise list-style answer with only relevant items.
+    - For "detailed" mode: provide a fuller response, but still stay on topic.
+    - If user asks one field (example: timings, fee, location, how to reach), return only that field.
+    - Follow-up questions should be answered narrowly based on the follow-up.
 
     Conversation history:
     {conversation_context}
 
-    Context:
-    {full_context}
+    ReelScout Location Context:
+    {location_context or "No location context available."}
+
+    ReelScout Reel Context:
+    {reel_context or "No reel context available."}
 
     Return your response in STRICT VALID JSON ONLY.
 
@@ -90,13 +314,36 @@ Transcript:
     """
 
     gemini = GeminiService()
+    text = _safe_generate(gemini, prompt)
 
-    response = gemini.model.generate_content(prompt)
+    if not text:
+        if relevant_locations:
+            top = relevant_locations[:3]
+            if answer_style == "specific":
+                fallback_answer = f"I found matching ReelScout data for {top[0].name}."
+            else:
+                fallback_answer = "I found location data in ReelScout. Here are the best matches: " + ", ".join(
+                    [f"{loc.name} ({loc.district or 'District unknown'})" for loc in top]
+                )
+            return {
+                "answer": fallback_answer,
+                "locations": [
+                    {
+                        "name": loc.name,
+                        "district": loc.district or "",
+                        "reason": "Matched from ReelScout location data"
+                    }
+                    for loc in top
+                ],
+                "reels": context_reels[:8]
+            }
+        return {
+            "answer": "I couldn't fetch enough data right now. Please try again.",
+            "locations": [],
+            "reels": []
+        }
 
-    text = response.text.strip()
-
-    if text.startswith("```"):
-        text = text.replace("```json", "").replace("```", "").strip()
+    text = _clean_json_block(text)
 
     # Try parsing Gemini JSON
     try:
@@ -109,8 +356,42 @@ Transcript:
             "recommended_locations": []
         }
 
+    model_recommendations = data.get("recommended_locations", [])
+    normalized_recommendations = []
+    for item in model_recommendations:
+        if not isinstance(item, dict):
+            continue
+        loc_name = str(item.get("name", "")).strip()
+        resolved = _resolve_location_name(loc_name, relevant_locations)
+        if resolved:
+            normalized_recommendations.append({
+                "name": resolved.name,
+                "district": resolved.district or "",
+                "reason": str(item.get("reason", "Relevant to your query")).strip() or "Relevant to your query",
+            })
+        elif loc_name:
+            normalized_recommendations.append({
+                "name": loc_name,
+                "district": str(item.get("district", "")).strip(),
+                "reason": str(item.get("reason", "General knowledge suggestion")).strip() or "General knowledge suggestion",
+            })
+
+    if not normalized_recommendations and relevant_locations:
+        normalized_recommendations = [
+            {
+                "name": loc.name,
+                "district": loc.district or "",
+                "reason": "Matched from ReelScout location data"
+            }
+            for loc in relevant_locations[:5]
+        ]
+
+    answer_text = data.get("answer", "")
+    if answer_style == "specific":
+        answer_text = _limit_specific_answer(answer_text)
+
     return {
-        "answer": data.get("answer", ""),
-        "locations": data.get("recommended_locations", []),
-        "reels": reels
+        "answer": answer_text,
+        "locations": normalized_recommendations[:5],
+        "reels": context_reels[:8]
     }
