@@ -7,45 +7,168 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const COMMENT_SCRAPER_SCRIPT = String.raw`async function run() {
-    console.log("🚀 Script Started...");
+const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runCommentsOnlyScraper() {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const MAX_COMMENTS = 250;
 
-    // 1. Get Shortcode
-    const match = window.location.pathname.match(/\/reels?\/([^\/]+)/);
-    const sc = match ? match[1] : null;
-    if (!sc) { alert("❌ Error: Can't find Reel ID in URL"); return; }
-    console.log("✅ Reel ID found:", sc);
+  const m = window.location.pathname.match(/\/reels?\/([^\/?#]+)/i);
+  const short_code = m ? m[1] : null;
+  if (!short_code) return alert("Cannot detect reel shortcode from URL.");
 
-    // 2. Scrape Text (Instant Mode - No clicking for now)
-    const comments = [];
-    document.querySelectorAll('span').forEach(s => {
-        if (s.innerText.length > 2 && s.innerText.length < 300) comments.push(s.innerText);
-    });
-    const uniqueComments = [...new Set(comments)];
+  const text = (el) => (el?.innerText || "").trim();
+  const isVisible = (el) => !!(el && el.offsetParent !== null);
 
-    // 3. Prepare Data
-    const payload = JSON.stringify({ short_code: sc, comments: uniqueComments });
+  function getCommentsRoot() {
+    const dialog = document.querySelector('div[role="dialog"]');
+    if (!dialog) return null;
 
-    // 4. Try to Copy (The "Triple Fallback" Method)
-    try {
-        // Method A: Standard Clipboard API
-        await navigator.clipboard.writeText(payload);
-        alert("✅ COPIED! (Method A)\n\nGo paste it in ReelScout.");
-    } catch (errA) {
-        console.warn("Method A failed. Trying Method B...");
-        try {
-            // Method B: DevTools Command
-            copy(payload);
-            alert("✅ COPIED! (Method B)\n\nGo paste it in ReelScout.");
-        } catch (errB) {
-            console.warn("Method B failed. Switching to Manual Mode.");
-            // Method C: Brute Force Prompt
-            window.prompt("❌ Auto-copy failed. Press Ctrl+C to copy this manually:", payload);
-        }
+    const all = Array.from(dialog.querySelectorAll("div"));
+    const scrollables = all.filter(
+      (d) => isVisible(d) && d.scrollHeight > d.clientHeight + 20
+    );
+    scrollables.sort(
+      (a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight)
+    );
+    return scrollables[0] || null;
+  }
+
+  const commentsRoot = getCommentsRoot();
+  if (!commentsRoot) {
+    alert("Could not find comments panel. Open comments popup first, then run.");
+    return;
+  }
+
+  const clickPatterns = [
+    /view replies?/i,
+    /view all replies?/i,
+    /see replies?/i,
+    /more replies?/i,
+    /see more/i,
+    /load more comments?/i
+  ];
+
+  function clickExpandableInRoot(root) {
+    let n = 0;
+    const els = Array.from(root.querySelectorAll("button, div[role='button'], span"));
+    for (const el of els) {
+      const t = text(el).toLowerCase();
+      if (!t) continue;
+      if (clickPatterns.some((p) => p.test(t))) {
+        try { el.click(); n++; } catch {}
+      }
     }
-}
-run();`;
+    return n;
+  }
 
+  function looksLikeCommentLine(s) {
+    const t = String(s || "").trim();
+    if (t.length < 3 || t.length > 350) return false;
+    if (/^\d+\s*[smhdw]$/i.test(t)) return false;
+
+    const junk = [
+      "reply", "replies", "see translation", "translated", "like", "likes",
+      "follow", "following", "message", "comments", "original audio"
+    ];
+    if (junk.includes(t.toLowerCase())) return false;
+
+    if (!/\s/.test(t) && t.length < 12) return false;
+    return true;
+  }
+
+  let stagnant = 0;
+  let prevHeight = commentsRoot.scrollHeight;
+
+  for (let i = 0; i < 20; i++) {
+    const clicks = clickExpandableInRoot(commentsRoot);
+    await sleep(600);
+
+    const before = commentsRoot.scrollTop;
+    commentsRoot.scrollTop = Math.min(
+      commentsRoot.scrollTop + Math.max(700, commentsRoot.clientHeight * 0.9),
+      commentsRoot.scrollHeight
+    );
+    await sleep(900);
+
+    const heightGrew = commentsRoot.scrollHeight > prevHeight + 20;
+    const moved = commentsRoot.scrollTop > before;
+
+    if (!heightGrew && !moved && clicks === 0) stagnant++;
+    else stagnant = 0;
+
+    prevHeight = commentsRoot.scrollHeight;
+    if (stagnant >= 4) break;
+  }
+
+  const raw = [];
+  const candidates = commentsRoot.querySelectorAll("span, h3, div[dir='auto']");
+  for (const el of candidates) {
+    const t = text(el);
+    if (looksLikeCommentLine(t)) raw.push(t);
+  }
+
+  const seen = new Set();
+  const comments = [];
+  for (const c of raw) {
+    const k = c.toLowerCase();
+    if (!seen.has(k)) {
+      seen.add(k);
+      comments.push(c);
+      if (comments.length >= MAX_COMMENTS) break;
+    }
+  }
+
+  const payload = JSON.stringify({ short_code, comments });
+
+  function fallbackCopy(str) {
+    const ta = document.createElement("textarea");
+    ta.value = str;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "-9999px";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  let copied = false;
+
+  try {
+    await navigator.clipboard.writeText(payload);
+    copied = true;
+  } catch {}
+
+  if (!copied) {
+    try {
+      copy(payload);
+      copied = true;
+    } catch {}
+  }
+
+  if (!copied) {
+    copied = fallbackCopy(payload);
+  }
+
+  if (copied) {
+    alert("Copied " + comments.length + " comments. Paste directly into ReelScout.");
+  } else {
+    prompt("Auto-copy failed. Press Ctrl+C then Enter:", payload);
+  }
+
+  console.log({
+    short_code,
+    comments_count: comments.length,
+    max_comments: MAX_COMMENTS,
+    sample: comments.slice(0, 20)
+  });
+})();`;
 function toSlug(value: string) {
   return value
     .toLowerCase()
@@ -304,3 +427,4 @@ export function ReelSubmissionForm() {
     </div>
   );
 }
+

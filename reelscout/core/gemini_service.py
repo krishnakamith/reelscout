@@ -85,6 +85,14 @@ class GeminiService:
         TASK B: Identify the location and provide its geographic latitude and longitude coordinates.
         TASK B2: Create a short travel summary (2-3 sentences) in English for UI display.
         The summary must NOT be a verbatim transcript. It should synthesize audio + caption + comments + visuals.
+        TASK B3: Determine "category" for the location.
+        - If a category is directly mentioned (for example: beach, waterfall, temple), use that.
+        - If not directly mentioned, infer the most likely category from visuals + transcript + caption + comments.
+        - Choose ONLY one category string.
+        - Use one of these normalized categories where possible:
+          "Waterfall", "Beach", "Temple", "Church", "Mosque", "Fort", "Dam", "Lake", "Hill Station",
+          "Viewpoint", "Cave", "Forest", "River", "Park", "Island", "Palace", "Museum", "Town", "Village", "Other".
+        - If evidence is weak, return "Other".
 
         TASK C: Smart Dynamic Data Collection.
         Extract data into two strict JSON dictionaries based ONLY on what is actively mentioned in the inputs. DO NOT use predefined keys. Invent your own highly descriptive, short snake_case keys based on the context of the video. 
@@ -106,6 +114,7 @@ class GeminiService:
             "transcript": "Your transcript here...",
             "summary": "2-3 sentence travel-focused summary, not transcript",
             "location": "Place Name",
+            "category": "One best category",
             "district": "District Name",
             "specific_area": "Specific area / locality",
             "latitude": 10.8505,
