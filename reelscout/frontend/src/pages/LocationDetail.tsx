@@ -183,24 +183,6 @@ const LocationDetail = () => {
           });
         }
 
-        if (Array.isArray(data?.reels)) {
-          data.reels.forEach((reel, idx) => {
-            const topComment = reel?.comments_dump?.[0];
-            if (typeof topComment === "string" && topComment.trim()) {
-              const stripped = topComment
-                .replace(/\[score:\s*\d+\]\s*\([^)]+\)\s*/i, "")
-                .trim();
-              entries.push({
-                id: `reel-comment-${reel.short_code || idx}`,
-                user: (reel.author_handle || "reel.community").replace(/\s+/g, ".").toLowerCase(),
-                text: stripped,
-                tag: "From Reels",
-                time: "Imported",
-              });
-            }
-          });
-        }
-
         if (entries.length > 0) {
           setCommunityEntries(entries.slice(0, 20));
         }

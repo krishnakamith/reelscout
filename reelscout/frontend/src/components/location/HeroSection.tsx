@@ -7,6 +7,7 @@ import heroWaterfallImage from "@/assets/hero-waterfall.jpg";
 import heroBeachImage from "@/assets/hero-beach.jpg";
 import heroHeritageImage from "@/assets/hero-heritage.jpg";
 import heroHillsImage from "@/assets/hero-hills.jpg";
+import heroViewpointImage from "@/assets/hero-viewpoint.jpg";
 import heroWaterbodyImage from "@/assets/hero-waterbody.jpg";
 import heroForestImage from "@/assets/hero-forest.jpg";
 
@@ -27,7 +28,8 @@ function pickHeroImage(category?: string, locationName?: string) {
   if (raw.includes("temple")) return heroTempleImage;
   if (raw.includes("church") || raw.includes("mosque")) return heroSacredImage;
   if (raw.includes("fort") || raw.includes("cave")) return heroHeritageImage;
-  if (raw.includes("hill") || raw.includes("mountain") || raw.includes("viewpoint") || raw.includes("view point")) return heroHillsImage;
+  if (raw.includes("viewpoint") || raw.includes("view point")) return heroViewpointImage;
+  if (raw.includes("hill") || raw.includes("mountain")) return heroHillsImage;
   if (raw.includes("lake") || raw.includes("dam") || raw.includes("river") || raw.includes("water")) return heroWaterbodyImage;
   if (raw.includes("park")) return heroDefaultImage;
 

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runCommentsOnlyScraper() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const MAX_COMMENTS = 500;
+  const MAX_COMMENTS = 800;
 
   const m = window.location.pathname.match(/\/reels?\/([^\/?#]+)/i);
   const short_code = m ? m[1] : null;

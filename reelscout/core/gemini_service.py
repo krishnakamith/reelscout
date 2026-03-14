@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import re
 import google.generativeai as genai
 from django.conf import settings
 from PIL import Image
@@ -15,6 +16,29 @@ class GeminiService:
         genai.configure(api_key=api_key)
         # Updated to the model available in your list
         self.model = genai.GenerativeModel('gemini-3-flash-preview')
+
+    def _extract_comment_text(self, raw_comment):
+        if isinstance(raw_comment, dict):
+            text = str(raw_comment.get("text", "")).strip()
+        else:
+            text = str(raw_comment or "").strip()
+
+        # Remove ranking metadata like: [SCORE: 12] (2d)
+        text = re.sub(r'^\[SCORE:\s*\d+\]\s*\([^)]+\)\s*', "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def _build_comments_context(self, comments_dump, limit=15):
+        if not isinstance(comments_dump, list) or not comments_dump:
+            return "No comments available."
+
+        cleaned = []
+        for comment in comments_dump[:limit]:
+            text = self._extract_comment_text(comment)
+            if text:
+                cleaned.append(f"- {text}")
+
+        return "\n".join(cleaned) if cleaned else "No comments available."
 
     def upload_audio(self, audio_path):
         # DEBUG: Print exactly where we are looking
@@ -61,16 +85,7 @@ class GeminiService:
             print("⚠️ No audio path provided to GeminiService.")
 
         # 3. Process Comments
-        comments_text = "No comments available."
-        if reel.comments_dump:
-            if isinstance(reel.comments_dump, list):
-                # Take the top 15 comments to avoid massive token usage
-                top_comments = reel.comments_dump[:15]
-                # If they are dicts (e.g., {'text': 'love this!', 'user': 'xyz'}), extract the text
-                if len(top_comments) > 0 and isinstance(top_comments[0], dict):
-                    comments_text = "\n".join([f"- {c.get('text', '')}" for c in top_comments])
-                else:
-                    comments_text = "\n".join([f"- {str(c)}" for c in top_comments])
+        comments_text = self._build_comments_context(reel.comments_dump)
 
         prompt = f"""
         You are a highly intelligent Malayalam travel data extraction expert.
@@ -96,12 +111,19 @@ class GeminiService:
 
         TASK C: Smart Dynamic Data Collection.
         Extract data into two strict JSON dictionaries based ONLY on what is actively mentioned in the inputs. DO NOT use predefined keys. Invent your own highly descriptive, short snake_case keys based on the context of the video. 
+        Every output string in JSON must be in English.
         
         Section 1 - "general_info": Collect the subjective highlights, atmospheric descriptions, and opinions. 
         (Examples of keys you MIGHT invent if mentioned: "monsoon_vibe", "scenic_highlights", "creator_opinion", "local_myth", "crowd_energy"). DO NOT write paragraphs.
 
         Section 2 - "known_facts": Extract ONLY verifiable, strict objective facts.
         (Examples of keys you MIGHT invent if mentioned: "jeep_safari_cost", "nearest_railway", "leech_warning", "exact_opening_time", "two_wheeler_parking", "trek_difficulty").
+
+        IMPORTANT COMMENT HANDLING:
+        - Do NOT copy or paste any comment verbatim into output fields.
+        - Derive the travel information from comments and rewrite it as concise English.
+        - Put subjective/experience signals into "general_info" and verifiable details into "known_facts".
+        - Ignore spam, emoji-only, jokes, user tags, and irrelevant chatter.
         
         CRITICAL: If a detail is not mentioned in the audio, caption, or comments, DO NOT invent a key for it. 
 
