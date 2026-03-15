@@ -288,7 +288,6 @@ const LocationDetail = () => {
           // Sort by highest verification count, format for BentoInsights
           const mappedInsights = Array.from(insightMap.values())
             .sort((a, b) => b.reelSources.size - a.reelSources.size)
-            .slice(0, 6)
             .map((item, index) => {
               const verifiedCount = item.reelSources.size;
               return {
@@ -386,7 +385,7 @@ const LocationDetail = () => {
             .sort((a, b) => (b.verifiedCount ?? 0) - (a.verifiedCount ?? 0));
 
           if (mappedFacts.length > 0) {
-            setFacts(mappedFacts.slice(0, 8));
+            setFacts(mappedFacts);
           }
         }
       })
