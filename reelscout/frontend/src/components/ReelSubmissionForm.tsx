@@ -7,168 +7,104 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runCommentsOnlyScraper() {
+// Fix: Removed inner backticks and ${} template literals so it doesn't break React compilation
+const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV7() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const MAX_COMMENTS = 800;
+  const TARGET_COMMENTS = 150; 
+  const globalComments = new Set();
+  const knownUsernames = new Set(); // 🚀 Our new dynamic blacklist
 
   const m = window.location.pathname.match(/\/reels?\/([^\/?#]+)/i);
-  const short_code = m ? m[1] : null;
-  if (!short_code) return alert("Cannot detect reel shortcode from URL.");
+  if (!m) return alert("Please run this on a Reel page!");
 
-  const text = (el) => (el?.innerText || "").trim();
-  const isVisible = (el) => !!(el && el.offsetParent !== null);
+  const dialog = document.querySelector('div[role="dialog"]');
+  if (!dialog) return alert("Please open the comments popup first!");
 
-  function getCommentsRoot() {
-    const dialog = document.querySelector('div[role="dialog"]');
-    if (!dialog) return null;
+  const scrollables = Array.from(dialog.querySelectorAll("div")).filter(
+    (d) => d.scrollHeight > d.clientHeight + 40 && d.clientHeight > 0
+  );
+  const commentsRoot = scrollables.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
 
-    const all = Array.from(dialog.querySelectorAll("div"));
-    const scrollables = all.filter(
-      (d) => isVisible(d) && d.scrollHeight > d.clientHeight + 20
-    );
-    scrollables.sort(
-      (a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight)
-    );
-    return scrollables[0] || null;
+  if (!commentsRoot) return alert("Could not find scrollable comments area.");
+
+  console.log("🚁 ReelScout Scraper V7: Building username blacklist & extracting...");
+
+  for (let i = 0; i < 50; i++) {
+    // 1. Expand all "more" text
+    const expanders = Array.from(commentsRoot.querySelectorAll('span, div[role="button"]'))
+        .filter(el => el.innerText && /^(more|view replies)$/i.test(el.innerText.trim()));
+    expanders.forEach(btn => { try { btn.click(); } catch(e){} });
+
+    await sleep(600);
+
+    // 2. 🚀 NEW: Build the Username Blacklist from actual profile links
+    const profileLinks = commentsRoot.querySelectorAll('a[href]');
+    profileLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        // Look for typical IG profile links like "/username/"
+        if (href && href.startsWith('/') && href.split('/').length === 3) {
+            const username = href.replaceAll('/', '').trim().toLowerCase();
+            if (username && username !== "p" && username !== "reels") {
+                knownUsernames.add(username);
+            }
+            // Also grab the literal text of the link just to be safe
+            if (link.innerText) knownUsernames.add(link.innerText.trim().toLowerCase());
+        }
+    });
+
+    // 3. Harvest and Filter
+    const commentNodes = commentsRoot.querySelectorAll('span[dir="auto"]');
+    commentNodes.forEach(node => {
+        const text = node.innerText.trim();
+        const lowerText = text.toLowerCase();
+        
+        // Basic UI filters
+        const isUI = /^(reply|hide replies|see translation|translated|like|likes|follow|following)$/i.test(text) || /^view all \d+ replies$/i.test(text);
+        const isNumberOrTime = /^\d+[smhdw]$/i.test(text) || /^\d+w$/i.test(text) || /^\d+$/.test(text);
+        const isLikeCount = /^\d+\s+likes?$/i.test(text);
+        const isTagOnly = /^@[a-z0-9_.]+$/i.test(text);
+
+        // 🚀 THE MAGIC: Is this text in our dynamic blacklist?
+        const isUsername = knownUsernames.has(lowerText);
+
+        // If it passes all tests, add it to our clean array
+        if (text && text.length > 1 && !isUI && !isNumberOrTime && !isLikeCount && !isTagOnly && !isUsername) {
+            globalComments.add(text);
+        }
+    });
+
+    // 4. Scroll Down
+    const previousHeight = commentsRoot.scrollHeight;
+    commentsRoot.scrollTop = commentsRoot.scrollHeight;
+    console.log("Scroll Pass \${i+1}: Logged \${globalComments.size} comments (Blocked \${knownUsernames.size} usernames)...");
+
+    if (globalComments.size >= TARGET_COMMENTS) break;
+
+    await sleep(1500);
+
+    // Break if we hit the true bottom
+    if (commentsRoot.scrollHeight === previousHeight && i > 5) break;
   }
 
-  const commentsRoot = getCommentsRoot();
-  if (!commentsRoot) {
-    alert("Could not find comments panel. Open comments popup first, then run.");
-    return;
-  }
+  // 5. Output
+  const allCommentsArray = Array.from(globalComments);
+  const payload = JSON.stringify(allCommentsArray, null, 2);
 
-  const clickPatterns = [
-    /view replies?/i,
-    /view all replies?/i,
-    /see replies?/i,
-    /more replies?/i,
-    /see more/i,
-    /load more comments?/i
-  ];
-
-  function clickExpandableInRoot(root) {
-    let n = 0;
-    const els = Array.from(root.querySelectorAll("button, div[role='button'], span"));
-    for (const el of els) {
-      const t = text(el).toLowerCase();
-      if (!t) continue;
-      if (clickPatterns.some((p) => p.test(t))) {
-        try { el.click(); n++; } catch {}
-      }
-    }
-    return n;
-  }
-
-  function looksLikeCommentLine(s) {
-    const t = String(s || "").trim();
-    if (t.length < 3 || t.length > 350) return false;
-    if (/^\d+\s*[smhdw]$/i.test(t)) return false;
-
-    const junk = [
-      "reply", "replies", "see translation", "translated", "like", "likes",
-      "follow", "following", "message", "comments", "original audio"
-    ];
-    if (junk.includes(t.toLowerCase())) return false;
-
-    if (!/\s/.test(t) && t.length < 12) return false;
-    return true;
-  }
-
-  let stagnant = 0;
-  let prevHeight = commentsRoot.scrollHeight;
-
-  for (let i = 0; i < 20; i++) {
-    const clicks = clickExpandableInRoot(commentsRoot);
-    await sleep(800);
-
-    const before = commentsRoot.scrollTop;
-    commentsRoot.scrollTop = Math.min(
-      commentsRoot.scrollTop + Math.max(700, commentsRoot.clientHeight * 0.9),
-      commentsRoot.scrollHeight
-    );
-    await sleep(1100);
-
-    const heightGrew = commentsRoot.scrollHeight > prevHeight + 20;
-    const moved = commentsRoot.scrollTop > before;
-
-    if (!heightGrew && !moved && clicks === 0) stagnant++;
-    else stagnant = 0;
-
-    prevHeight = commentsRoot.scrollHeight;
-    if (stagnant >= 4) break;
-  }
-
-  const raw = [];
-  const candidates = commentsRoot.querySelectorAll("span, h3, div[dir='auto']");
-  for (const el of candidates) {
-    const t = text(el);
-    if (looksLikeCommentLine(t)) raw.push(t);
-  }
-
-  const seen = new Set();
-  const comments = [];
-  for (const c of raw) {
-    const k = c.toLowerCase();
-    if (!seen.has(k)) {
-      seen.add(k);
-      comments.push(c);
-      if (comments.length >= MAX_COMMENTS) break;
-    }
-  }
-
-  const payload = JSON.stringify({ short_code, comments });
-
-  function fallbackCopy(str) {
-    const ta = document.createElement("textarea");
-    ta.value = str;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.top = "-9999px";
-    ta.style.left = "-9999px";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    ta.setSelectionRange(0, ta.value.length);
-    let ok = false;
-    try {
-      ok = document.execCommand("copy");
-    } catch {}
-    document.body.removeChild(ta);
-    return ok;
-  }
-
-  let copied = false;
-
+  // Force Copy to Clipboard
   try {
-    await navigator.clipboard.writeText(payload);
-    copied = true;
-  } catch {}
-
-  if (!copied) {
-    try {
-      copy(payload);
-      copied = true;
-    } catch {}
+    const ta = document.createElement("textarea");
+    ta.value = payload;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    alert("✅ Success! Copied comments!");
+  } catch (err) {
+    console.error("Payload:", payload);
+    alert("Clipboard copy failed, but the array is printed in the browser console.");
   }
-
-  if (!copied) {
-    copied = fallbackCopy(payload);
-  }
-
-  if (copied) {
-    alert("Copied " + comments.length + " comments. Paste directly into ReelScout.");
-  } else {
-    prompt("Auto-copy failed. Press Ctrl+C then Enter:", payload);
-  }
-
-  console.log({
-    short_code,
-    comments_count: comments.length,
-    max_comments: MAX_COMMENTS,
-    sample: comments.slice(0, 20)
-  });
 })();`;
+
 function toSlug(value: string) {
   return value
     .toLowerCase()
@@ -223,10 +159,13 @@ export function ReelSubmissionForm() {
       let comments: string[] = [];
       const commentsInput = formData.commentsText.trim();
 
-      // Support both raw newline comments and the JSON payload copied from the scraper script.
       try {
         const parsed = JSON.parse(commentsInput);
-        if (parsed && typeof parsed === "object") {
+        if (Array.isArray(parsed)) {
+          comments = parsed
+            .map((item) => String(item).trim())
+            .filter((line) => line.length > 0);
+        } else if (parsed && typeof parsed === "object") {
           if (typeof parsed.short_code === "string") {
             pastedShortCode = parsed.short_code;
           }
@@ -243,7 +182,6 @@ export function ReelSubmissionForm() {
           .filter((line) => line.length > 0);
       }
 
-      // Send URL + comments together so backend can persist comments before AI analysis starts.
       const response = await fetch('/api/search/', {
         method: 'POST',
         headers: {
@@ -260,7 +198,6 @@ export function ReelSubmissionForm() {
       if (response.ok) {
         const shortCode = data?.data?.short_code || pastedShortCode;
 
-        // Backward-compatibility fallback for older backend behavior.
         if (shortCode && comments.length > 0 && (data?.data?.comments_count ?? 0) === 0) {
           const commentsResponse = await fetch('/api/save-comments/', {
             method: 'POST',
@@ -295,7 +232,6 @@ export function ReelSubmissionForm() {
           },
         });
       } else {
-        // If Django sends back an error (like an invalid URL)
         throw new Error(data.error || `Submission failed (HTTP ${response.status})`);
       }
     } catch (error) {
@@ -306,9 +242,9 @@ export function ReelSubmissionForm() {
       setIsSubmitting(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-40 glass border-b border-border">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Button
@@ -333,7 +269,6 @@ export function ReelSubmissionForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Reel URL */}
           <div className="space-y-2">
             <Label htmlFor="reelUrl" className="flex items-center gap-2 text-foreground">
               <Link2 className="h-4 w-4 text-secondary" />
@@ -350,7 +285,6 @@ export function ReelSubmissionForm() {
             />
           </div>
 
-          {/* Comments */}
           <div className="space-y-2">
             <div className="space-y-3 rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
@@ -382,7 +316,6 @@ export function ReelSubmissionForm() {
             />
           </div>
 
-          {/* Submit */}
           <Button
             type="submit"
             disabled={isSubmitting}
@@ -402,7 +335,6 @@ export function ReelSubmissionForm() {
           </Button>
         </form>
 
-        {/* Info Card */}
         <div className="mt-10 p-6 rounded-2xl bg-muted/50 border border-border">
           <h3 className="font-display text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-primary" />
@@ -427,4 +359,3 @@ export function ReelSubmissionForm() {
     </div>
   );
 }
-
