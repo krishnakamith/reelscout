@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 // Fix: Removed inner backticks and ${} template literals so it doesn't break React compilation
-const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV7() {
+const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV8() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const TARGET_COMMENTS = 150; 
   const globalComments = new Set();
-  const knownUsernames = new Set(); // 🚀 Our new dynamic blacklist
+  const knownUsernames = new Set(); 
 
   const m = window.location.pathname.match(/\/reels?\/([^\/?#]+)/i);
   if (!m) return alert("Please run this on a Reel page!");
@@ -27,7 +27,7 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV
 
   if (!commentsRoot) return alert("Could not find scrollable comments area.");
 
-  console.log("🚁 ReelScout Scraper V7: Building username blacklist & extracting...");
+  console.log("🚁 ReelScout Scraper V8: Extracting...");
 
   for (let i = 0; i < 50; i++) {
     // 1. Expand all "more" text
@@ -37,17 +37,13 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV
 
     await sleep(600);
 
-    // 2. 🚀 NEW: Build the Username Blacklist from actual profile links
+    // 2. Build Username Blacklist
     const profileLinks = commentsRoot.querySelectorAll('a[href]');
     profileLinks.forEach(link => {
         const href = link.getAttribute('href');
-        // Look for typical IG profile links like "/username/"
         if (href && href.startsWith('/') && href.split('/').length === 3) {
             const username = href.replaceAll('/', '').trim().toLowerCase();
-            if (username && username !== "p" && username !== "reels") {
-                knownUsernames.add(username);
-            }
-            // Also grab the literal text of the link just to be safe
+            if (username && username !== "p" && username !== "reels") knownUsernames.add(username);
             if (link.innerText) knownUsernames.add(link.innerText.trim().toLowerCase());
         }
     });
@@ -58,16 +54,12 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV
         const text = node.innerText.trim();
         const lowerText = text.toLowerCase();
         
-        // Basic UI filters
         const isUI = /^(reply|hide replies|see translation|translated|like|likes|follow|following)$/i.test(text) || /^view all \d+ replies$/i.test(text);
         const isNumberOrTime = /^\d+[smhdw]$/i.test(text) || /^\d+w$/i.test(text) || /^\d+$/.test(text);
         const isLikeCount = /^\d+\s+likes?$/i.test(text);
         const isTagOnly = /^@[a-z0-9_.]+$/i.test(text);
-
-        // 🚀 THE MAGIC: Is this text in our dynamic blacklist?
         const isUsername = knownUsernames.has(lowerText);
 
-        // If it passes all tests, add it to our clean array
         if (text && text.length > 1 && !isUI && !isNumberOrTime && !isLikeCount && !isTagOnly && !isUsername) {
             globalComments.add(text);
         }
@@ -76,33 +68,84 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV
     // 4. Scroll Down
     const previousHeight = commentsRoot.scrollHeight;
     commentsRoot.scrollTop = commentsRoot.scrollHeight;
-    console.log("Scroll Pass \${i+1}: Logged \${globalComments.size} comments (Blocked \${knownUsernames.size} usernames)...");
+    console.log("Scroll Pass " + (i+1) + ": Logged " + globalComments.size + " comments...");
 
     if (globalComments.size >= TARGET_COMMENTS) break;
 
     await sleep(1500);
-
-    // Break if we hit the true bottom
     if (commentsRoot.scrollHeight === previousHeight && i > 5) break;
   }
 
-  // 5. Output
+  // 5. 100% RELIABLE OUTPUT UI
   const allCommentsArray = Array.from(globalComments);
   const payload = JSON.stringify(allCommentsArray, null, 2);
 
-  // Force Copy to Clipboard
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = payload;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-    alert("✅ Success! Copied comments!");
-  } catch (err) {
-    console.error("Payload:", payload);
-    alert("Clipboard copy failed, but the array is printed in the browser console.");
-  }
+  // Create a full-screen overlay to force a physical user click
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:999999;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;font-family:sans-serif;";
+  
+  const title = document.createElement("h2");
+  title.innerText = "✅ Scraped " + allCommentsArray.length + " Comments!";
+  title.style.marginBottom = "30px";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.innerText = "📋 CLICK HERE TO COPY";
+  copyBtn.style.cssText = "padding:20px 40px;font-size:24px;background:#0095f6;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-weight:bold;";
+  
+  const downloadBtn = document.createElement("button");
+  downloadBtn.innerText = "💾 OR DOWNLOAD AS FILE";
+  downloadBtn.style.cssText = "padding:15px 30px;font-size:18px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:30px;";
+
+  const closeBtn = document.createElement("button");
+  closeBtn.innerText = "Close & Resume Instagram";
+  closeBtn.style.cssText = "padding: 10px 20px; background: transparent; color: #ccc; border: 1px solid #ccc; border-radius: 5px; cursor: pointer;";
+
+  overlay.appendChild(title);
+  overlay.appendChild(copyBtn);
+  overlay.appendChild(downloadBtn);
+  overlay.appendChild(closeBtn);
+  document.body.appendChild(overlay);
+
+  // Because you physically click this button, the browser ALLOWS the copy.
+  copyBtn.addEventListener("click", async () => {
+      try {
+          if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(payload);
+          } else {
+              const ta = document.createElement("textarea");
+              ta.value = payload;
+              ta.style.position = "fixed"; ta.style.opacity = "0";
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand("copy");
+              document.body.removeChild(ta);
+          }
+          copyBtn.innerText = "✅ COPIED TO CLIPBOARD!";
+          copyBtn.style.background = "#28a745";
+          setTimeout(() => document.body.removeChild(overlay), 2000);
+      } catch (err) {
+          alert("Clipboard blocked! Please use the Download button instead.");
+      }
+  });
+
+  // Ultimate backup: Download as a text file
+  downloadBtn.addEventListener("click", () => {
+      const blob = new Blob([payload], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'instagram_comments.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      downloadBtn.innerText = "✅ FILE DOWNLOADED!";
+      setTimeout(() => document.body.removeChild(overlay), 2000);
+  });
+
+  closeBtn.addEventListener("click", () => document.body.removeChild(overlay));
+
 })();`;
 
 function toSlug(value: string) {
@@ -131,10 +174,38 @@ export function ReelSubmissionForm() {
 
   const copyScriptToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(COMMENT_SCRAPER_SCRIPT);
-      toast.success("Script copied");
-    } catch {
-      toast.error("Could not copy script");
+      // 1. Try modern Clipboard API first
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(COMMENT_SCRAPER_SCRIPT);
+        toast.success("Script copied!");
+        return;
+      }
+      throw new Error("Clipboard API not available");
+    } catch (err) {
+      // 2. Fallback to older execCommand method
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = COMMENT_SCRAPER_SCRIPT;
+        
+        // Make it invisible
+        textArea.style.position = "absolute";
+        textArea.style.left = "-999999px";
+        
+        document.body.appendChild(textArea);
+        textArea.select();
+        
+        const successful = document.execCommand("copy");
+        document.body.removeChild(textArea);
+
+        if (successful) {
+          toast.success("Script copied (fallback method)!");
+        } else {
+          toast.error("Could not copy script. Please copy manually.");
+        }
+      } catch (fallbackErr) {
+        console.error("Both copy methods failed:", fallbackErr);
+        toast.error("Could not copy script. Please copy manually.");
+      }
     }
   };
 

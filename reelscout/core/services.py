@@ -1,4 +1,5 @@
 import re
+import math
 import requests
 import json
 import time
@@ -13,7 +14,15 @@ from .gemini_service import GeminiService
 from core.rag.index_updater import add_reel_to_index
 from core.rag.add_frames_to_index import add_frames_to_index
 
-
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates the great-circle distance in meters between two coordinates."""
+    R = 6371000 # Earth radius in meters
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def extract_shortcode(url):
     match = re.search(r'/(?:reel|p)/([^/?#&]+)', url)
@@ -247,9 +256,8 @@ def get_or_process_reel(reel_url, prepared_comments=None):
         if has_prepared_comments:
             print("✅ Using comments provided with request.")
         else:
-            # 👉 THE WAITING ROOM: Pause to let the browser script save comments!
             print("⏳ Waiting for comments from the browser script...")
-            max_attempts = 15 # Wait up to 30 seconds (15 attempts * 2 seconds)
+            max_attempts = 15
             for attempt in range(max_attempts):
                 reel.refresh_from_db()
                 if reel.comments_dump and len(reel.comments_dump) > 0:
@@ -270,34 +278,78 @@ def get_or_process_reel(reel_url, prepared_comments=None):
             try:
                 data = json.loads(ai_result_json)
                 loc_name = data.get("location")
+                ai_alternate_names = data.get("alternate_names", [])
                 category = data.get("category")
                 district = data.get("district")
                 specific_area = data.get("specific_area")
+                latitude = data.get("latitude")
+                longitude = data.get("longitude")
                 general_info = _as_dict(data.get("general_info"))
                 known_facts = _as_dict(data.get("known_facts"))
 
                 if loc_name:
                     resolved_category = category or _infer_category(loc_name) or "Uncategorized"
-                    discovered_aliases = _clean_aliases(
-                        [loc_name, reel.instagram_location_name],
-                        canonical_name=loc_name,
-                    )
+                    
+                    location_obj = None
 
+                    # 1. Primary AI Name Match
                     location_obj = _find_location_by_any_name(loc_name, district=district)
+                    
+                    # 2. Instagram Ground Truth Name Match
                     if not location_obj and reel.instagram_location_name:
-                        location_obj = _find_location_by_any_name(
-                            reel.instagram_location_name,
-                            district=district,
+                        location_obj = _find_location_by_any_name(reel.instagram_location_name, district=district)
+
+                    # 3. AI Extracted Alternate Name Match
+                    if not location_obj and ai_alternate_names:
+                        for alt_name in ai_alternate_names:
+                            location_obj = _find_location_by_any_name(alt_name, district=district)
+                            if location_obj:
+                                print(f"📍 MATCH: Found location via extracted alternate name '{alt_name}'")
+                                break
+
+                    # 4. Spatial Clustering Fallback (Within 500m) with AI Verification
+                    if not location_obj and latitude is not None and longitude is not None:
+                        lat_tol, lon_tol = 0.01, 0.01
+                        nearby_candidates = Location.objects.filter(
+                            latitude__isnull=False,
+                            longitude__isnull=False,
+                            latitude__range=(float(latitude) - lat_tol, float(latitude) + lat_tol),
+                            longitude__range=(float(longitude) - lon_tol, float(longitude) + lon_tol)
                         )
+                        for candidate in nearby_candidates:
+                            dist = haversine_distance(
+                                float(latitude), float(longitude), 
+                                float(candidate.latitude), float(candidate.longitude)
+                            )
+                            if dist <= 500: # 500 meters threshold
+                                is_same_place = ai_service.verify_location_merge(
+                                    new_name=loc_name,
+                                    new_category=resolved_category,
+                                    new_info=general_info,
+                                    existing_location=candidate,
+                                    distance=dist
+                                )
+                                
+                                if is_same_place:
+                                    location_obj = candidate
+                                    print(f"📍 MERGE APPROVED: AI confirmed '{loc_name}' is the same as '{candidate.name}' (Distance: {dist:.1f}m)")
+                                    break
+                                else:
+                                    print(f"🛑 MERGE REJECTED: AI confirmed '{loc_name}' is distinct from '{candidate.name}' despite being {dist:.1f}m away.")
+
+                    # Compile all discovered names for the database
+                    names_to_store = [loc_name, reel.instagram_location_name] + ai_alternate_names
+                    names_to_store = [n for n in names_to_store if n] # Filter out None values
 
                     if not location_obj:
+                        discovered_aliases = _clean_aliases(names_to_store, canonical_name=loc_name)
                         location_obj = Location.objects.create(
                             name=loc_name,
                             category=resolved_category,
                             district=district,
                             specific_area=specific_area,
-                            latitude=data.get('latitude'),
-                            longitude=data.get('longitude'),
+                            latitude=latitude,
+                            longitude=longitude,
                             general_info=general_info,
                             known_facts=known_facts,
                             alternate_names=discovered_aliases,
@@ -311,7 +363,7 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
                         merged_aliases = _merge_aliases(
                             location_obj.alternate_names,
-                            [loc_name, reel.instagram_location_name],
+                            names_to_store,
                             canonical_name=location_obj.name,
                         )
                         if merged_aliases != (location_obj.alternate_names or []):
@@ -346,8 +398,6 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                             location_obj.specific_area = specific_area
                             has_updates = True
 
-                        latitude = data.get("latitude")
-                        longitude = data.get("longitude")
                         if latitude and not location_obj.latitude:
                             location_obj.latitude = latitude
                             has_updates = True
@@ -366,7 +416,6 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                     data.get("selected_frame_timestamps")
                 )
 
-                # Prevent transcript from being reused as summary.
                 if isinstance(summary_text, str) and isinstance(transcript_text, str):
                     if summary_text.strip() == transcript_text.strip():
                         summary_text = None
