@@ -57,7 +57,12 @@ class ScrapedReelAdmin(admin.ModelAdmin):
     list_filter = ('is_processed', 'posted_at', 'location')
     search_fields = ('short_code', 'author_handle')
     inlines = [ReelFrameInline]
-    readonly_fields = ('pretty_comments_dump', 'pretty_ai_summary')
+    readonly_fields = (
+        'pretty_comments_dump',
+        'pretty_ai_summary',
+        'pretty_extracted_general_info',
+        'pretty_extracted_known_facts',
+    )
 
     fieldsets = (
         ('Identifiers & Media', {
@@ -70,7 +75,17 @@ class ScrapedReelAdmin(admin.ModelAdmin):
             'fields': ('author_handle', 'posted_at', 'instagram_location_name', 'location')
         }),
         ('AI Outputs', {
-            'fields': ('is_processed', 'ai_location_name', 'selected_frame_timestamps', 'ai_summary', 'pretty_ai_summary')
+            'fields': (
+                'is_processed',
+                'ai_location_name',
+                'selected_frame_timestamps',
+                'ai_summary',
+                'pretty_ai_summary',
+                'extracted_general_info',
+                'pretty_extracted_general_info',
+                'extracted_known_facts',
+                'pretty_extracted_known_facts',
+            )
         }),
     )
 
@@ -93,6 +108,26 @@ class ScrapedReelAdmin(admin.ModelAdmin):
             )
         return "No comments saved yet."
     pretty_comments_dump.short_description = 'Comments Preview'
+
+    def pretty_extracted_general_info(self, obj):
+        if obj.extracted_general_info:
+            formatted_json = json.dumps(obj.extracted_general_info, indent=2, ensure_ascii=False)
+            return format_html(
+                '<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 5px; white-space: pre-wrap;">{}</pre>',
+                formatted_json
+            )
+        return "No extracted general info yet."
+    pretty_extracted_general_info.short_description = 'Extracted General Info Preview'
+
+    def pretty_extracted_known_facts(self, obj):
+        if obj.extracted_known_facts:
+            formatted_json = json.dumps(obj.extracted_known_facts, indent=2, ensure_ascii=False)
+            return format_html(
+                '<pre style="background-color: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 5px; white-space: pre-wrap;">{}</pre>',
+                formatted_json
+            )
+        return "No extracted known facts yet."
+    pretty_extracted_known_facts.short_description = 'Extracted Known Facts Preview'
 
 @admin.register(ReelFrame)
 class ReelFrameAdmin(admin.ModelAdmin):

@@ -83,6 +83,10 @@ function normalizeFactText(text: string) {
     .trim();
 }
 
+function getReelSourceId(reel: ReelItem, index: number) {
+  return reel.short_code?.trim() || `reel-${index}`;
+}
+
 const LocationDetail = () => {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -239,7 +243,7 @@ const LocationDetail = () => {
           // ==========================================
           // 1. DYNAMICALLY AGGREGATE INSIGHTS (GENERAL INFO)
           // ==========================================
-          const insightMap = new Map<string, { label: string; value: string; count: number }>();
+          const insightMap = new Map<string, { label: string; value: string; reelSources: Set<string> }>();
 
           // Fallback: load legacy master location data first so it isn't lost
           if (data?.general_info) {
@@ -248,13 +252,14 @@ const LocationDetail = () => {
                    const label = prettifyLabel(key);
                    const factText = val.trim();
                    const normKey = normalizeFactText(`${label} ${factText}`);
-                   insightMap.set(normKey, { label, value: factText, count: 1 });
+                   insightMap.set(normKey, { label, value: factText, reelSources: new Set<string>() });
                 }
              });
           }
 
           // Iterate through every reel to extract and stack its subjective info
-          data.reels.forEach((reel) => {
+          data.reels.forEach((reel, reelIndex) => {
+            const reelSourceId = getReelSourceId(reel, reelIndex);
             if (reel.extracted_general_info) {
               Object.entries(reel.extracted_general_info).forEach(([key, val]) => {
                 if (typeof val === "string" && val.trim()) {
@@ -263,9 +268,13 @@ const LocationDetail = () => {
                   const normKey = normalizeFactText(`${label} ${factText}`);
 
                   if (insightMap.has(normKey)) {
-                    insightMap.get(normKey)!.count += 1;
+                    insightMap.get(normKey)!.reelSources.add(reelSourceId);
                   } else {
-                    insightMap.set(normKey, { label, value: factText, count: 1 });
+                    insightMap.set(normKey, {
+                      label,
+                      value: factText,
+                      reelSources: new Set<string>([reelSourceId]),
+                    });
                   }
                 }
               });
@@ -274,16 +283,18 @@ const LocationDetail = () => {
 
           // Sort by highest verification count, format for BentoInsights
           const mappedInsights = Array.from(insightMap.values())
-            .sort((a, b) => b.count - a.count)
+            .sort((a, b) => b.reelSources.size - a.reelSources.size)
             .slice(0, 6)
-            .map((item, index) => ({
-              icon: insightIcons[index % insightIcons.length],
-              label: item.label,
-              value: item.value,
-              // Only show the detail badge if verified in more than 1 place
-              detail: item.count > 1 ? `Verified in ${item.count} reels` : undefined, 
-              span: index === 0 ? "col-span-1 sm:col-span-2" : "col-span-1",
-            }));
+            .map((item, index) => {
+              const verifiedCount = item.reelSources.size;
+              return {
+                icon: insightIcons[index % insightIcons.length],
+                label: item.label,
+                value: item.value,
+                detail: verifiedCount > 1 ? `Verified in ${verifiedCount} reels` : undefined,
+                span: index === 0 ? "col-span-1 sm:col-span-2" : "col-span-1",
+              };
+            });
 
           if (mappedInsights.length > 0) {
             setInsights(mappedInsights);
@@ -292,7 +303,7 @@ const LocationDetail = () => {
           // ==========================================
           // 2. DYNAMICALLY AGGREGATE KNOWN FACTS
           // ==========================================
-          const groupedFacts = new Map<string, ReelFactItem>();
+          const groupedFacts = new Map<string, ReelFactItem & { reelSources: Set<string> }>();
 
           // Fallback: load legacy master known facts
           if (data?.known_facts) {
@@ -305,13 +316,15 @@ const LocationDetail = () => {
                         category: prettifyLabel(key),
                         fact: factText,
                         source: "Location knowledge base",
-                        verifiedCount: 1,
+                        reelSources: new Set<string>(),
                     });
                 }
              });
           }
 
           data.reels.forEach((reel, index) => {
+            const reelSourceId = getReelSourceId(reel, index);
+
             // A. Grab objective facts strictly from this reel
             if (reel.extracted_known_facts) {
               Object.entries(reel.extracted_known_facts).forEach(([key, val]) => {
@@ -320,14 +333,14 @@ const LocationDetail = () => {
                   const normKey = normalizeFactText(`${key} ${factText}`);
 
                   if (groupedFacts.has(normKey)) {
-                    groupedFacts.get(normKey)!.verifiedCount! += 1;
+                    groupedFacts.get(normKey)!.reelSources.add(reelSourceId);
                   } else {
                     groupedFacts.set(normKey, {
                       id: `reel-fact-${reel.short_code ?? index}-${key}`,
                       category: prettifyLabel(key),
                       fact: factText,
                       source: reel.short_code ? `Reel ${reel.short_code}` : "User Reel",
-                      verifiedCount: 1,
+                      reelSources: new Set<string>([reelSourceId]),
                     });
                   }
                 }
@@ -339,14 +352,14 @@ const LocationDetail = () => {
               const factText = reel.ai_summary.trim();
               const key = `AI Summary::${normalizeFactText(factText)}`;
               if (groupedFacts.has(key)) {
-                groupedFacts.get(key)!.verifiedCount! += 1;
+                groupedFacts.get(key)!.reelSources.add(reelSourceId);
               } else {
                 groupedFacts.set(key, {
                   id: `summary-${reel.short_code ?? index}`,
                   category: "AI Summary",
                   fact: factText,
                   source: reel.short_code ? `Reel ${reel.short_code}` : undefined,
-                  verifiedCount: 1,
+                  reelSources: new Set<string>([reelSourceId]),
                 });
               }
             }
@@ -354,7 +367,14 @@ const LocationDetail = () => {
 
           // Sort the facts by highest verified count first
           const mappedFacts = Array.from(groupedFacts.values())
-            .sort((a, b) => (b.verifiedCount ?? 1) - (a.verifiedCount ?? 1));
+            .map(({ reelSources, ...item }) => {
+              const verifiedCount = reelSources.size;
+              return {
+                ...item,
+                verifiedCount: verifiedCount > 1 ? verifiedCount : undefined,
+              };
+            })
+            .sort((a, b) => (b.verifiedCount ?? 0) - (a.verifiedCount ?? 0));
 
           if (mappedFacts.length > 0) {
             setFacts(mappedFacts.slice(0, 8));
