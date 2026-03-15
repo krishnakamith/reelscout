@@ -28,6 +28,7 @@ function pickHeroImage(category?: string, locationName?: string) {
   if (raw.includes("temple")) return heroTempleImage;
   if (raw.includes("church") || raw.includes("mosque")) return heroSacredImage;
   if (raw.includes("fort") || raw.includes("cave")) return heroHeritageImage;
+  if (raw.includes("hill station") || compact.includes("hillstation")) return heroViewpointImage;
   if (raw.includes("viewpoint") || raw.includes("view point")) return heroViewpointImage;
   if (raw.includes("hill") || raw.includes("mountain")) return heroHillsImage;
   if (raw.includes("lake") || raw.includes("dam") || raw.includes("river") || raw.includes("water")) return heroWaterbodyImage;

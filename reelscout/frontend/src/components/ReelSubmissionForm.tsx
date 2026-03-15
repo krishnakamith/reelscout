@@ -10,7 +10,7 @@ import { toast } from "sonner";
 // Fix: Removed inner backticks and ${} template literals so it doesn't break React compilation
 const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV8() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const TARGET_COMMENTS = 150; 
+  const TARGET_COMMENTS = 250;
   const globalComments = new Set();
   const knownUsernames = new Set(); 
 

@@ -155,14 +155,17 @@ class GeminiService:
         - If evidence is weak, return "Other".
 
         TASK C: Smart Dynamic Data Collection.
-        Extract data into two strict JSON dictionaries based ONLY on what is actively mentioned in the inputs. DO NOT use predefined keys. Invent your own highly descriptive, short snake_case keys based on the context of the video. 
+        Extract data into two strict JSON dictionaries based ONLY on what is actively mentioned. 
         Every output string in JSON must be in English.
         
-        Section 1 - "general_info": Collect the subjective highlights, atmospheric descriptions, and opinions. 
-        (Examples of keys you MIGHT invent if mentioned: "monsoon_vibe", "scenic_highlights", "creator_opinion", "local_myth", "crowd_energy"). DO NOT write paragraphs.
+        Section 1 - "general_info": Collect subjective highlights and vibes.
+        Use standard keys if possible: "monsoon_vibe", "scenic_highlights", "crowd_energy". DO NOT write paragraphs.
 
         Section 2 - "known_facts": Extract ONLY verifiable, strict objective facts.
-        (Examples of keys you MIGHT invent if mentioned: "jeep_safari_cost", "nearest_railway", "leech_warning", "exact_opening_time", "two_wheeler_parking", "trek_difficulty").
+        CRITICAL: You MUST categorize facts using these standard keys whenever possible:
+        "entry_fee", "timings", "trek_distance", "parking", "best_time", "accessibility", "food", "transit".
+        Only invent a short snake_case key if the fact doesn't fit the standards above.
+        Keep the value extremely concise (e.g. "2 km", "₹50", "6 AM - 6 PM").
 
         IMPORTANT COMMENT HANDLING:
         - Do NOT copy or paste any comment verbatim into output fields.

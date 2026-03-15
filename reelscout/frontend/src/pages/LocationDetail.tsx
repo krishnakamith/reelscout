@@ -250,9 +250,8 @@ const LocationDetail = () => {
              Object.entries(data.general_info).forEach(([key, val]) => {
                 if (typeof val === "string" && val.trim()) {
                    const label = prettifyLabel(key);
-                   const factText = val.trim();
-                   const normKey = normalizeFactText(`${label} ${factText}`);
-                   insightMap.set(normKey, { label, value: factText, reelSources: new Set<string>() });
+                   const normKey = label.toLowerCase();
+                   insightMap.set(normKey, { label, value: val.trim(), reelSources: new Set<string>() });
                 }
              });
           }
@@ -264,15 +263,20 @@ const LocationDetail = () => {
               Object.entries(reel.extracted_general_info).forEach(([key, val]) => {
                 if (typeof val === "string" && val.trim()) {
                   const label = prettifyLabel(key);
-                  const factText = val.trim();
-                  const normKey = normalizeFactText(`${label} ${factText}`);
+                  const normKey = label.toLowerCase();
 
                   if (insightMap.has(normKey)) {
-                    insightMap.get(normKey)!.reelSources.add(reelSourceId);
+                    const existing = insightMap.get(normKey)!;
+                    existing.reelSources.add(reelSourceId);
+                    
+                    // Keep the most descriptive value
+                    if (val.trim().length > existing.value.length) {
+                       existing.value = val.trim();
+                    }
                   } else {
                     insightMap.set(normKey, {
                       label,
-                      value: factText,
+                      value: val.trim(),
                       reelSources: new Set<string>([reelSourceId]),
                     });
                   }
@@ -309,12 +313,11 @@ const LocationDetail = () => {
           if (data?.known_facts) {
              Object.entries(data.known_facts).forEach(([key, val], index) => {
                 if (typeof val === "string" && val.trim()) {
-                    const factText = val.trim();
-                    const normKey = normalizeFactText(`${key} ${factText}`);
+                    const normKey = prettifyLabel(key).toLowerCase();
                     groupedFacts.set(normKey, {
                         id: `known-fact-base-${index}`,
                         category: prettifyLabel(key),
-                        fact: factText,
+                        fact: val.trim(),
                         source: "Location knowledge base",
                         reelSources: new Set<string>(),
                     });
@@ -329,16 +332,22 @@ const LocationDetail = () => {
             if (reel.extracted_known_facts) {
               Object.entries(reel.extracted_known_facts).forEach(([key, val]) => {
                 if (typeof val === "string" && val.trim()) {
-                  const factText = val.trim();
-                  const normKey = normalizeFactText(`${key} ${factText}`);
+                  // Group purely by the Category Key so identical topics stack!
+                  const normKey = prettifyLabel(key).toLowerCase();
 
                   if (groupedFacts.has(normKey)) {
-                    groupedFacts.get(normKey)!.reelSources.add(reelSourceId);
+                    const existing = groupedFacts.get(normKey)!;
+                    existing.reelSources.add(reelSourceId);
+                    
+                    // If this reel's fact string is more detailed/longer, use it as the display text
+                    if (val.trim().length > existing.fact.length) {
+                       existing.fact = val.trim();
+                    }
                   } else {
                     groupedFacts.set(normKey, {
                       id: `reel-fact-${reel.short_code ?? index}-${key}`,
                       category: prettifyLabel(key),
-                      fact: factText,
+                      fact: val.trim(),
                       source: reel.short_code ? `Reel ${reel.short_code}` : "User Reel",
                       reelSources: new Set<string>([reelSourceId]),
                     });
