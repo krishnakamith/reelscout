@@ -20,19 +20,42 @@ interface HeroSectionProps {
 }
 
 function pickHeroImage(category?: string, locationName?: string) {
-  const raw = `${String(category || "").trim().toLowerCase()} ${String(locationName || "").trim().toLowerCase()}`.trim();
-  const compact = raw.replace(/[\s_-]+/g, "");
+  const categoryText = String(category || "").trim().toLowerCase();
+  const locationText = String(locationName || "").trim().toLowerCase();
+  const categoryCompact = categoryText.replace(/[\s_-]+/g, "");
+  const locationCompact = locationText.replace(/[\s_-]+/g, "");
 
-  if (raw.includes("waterfall") || raw.includes("falls") || compact.includes("waterfall")) return heroWaterfallImage;
-  if (raw.includes("beach")) return heroBeachImage;
-  if (raw.includes("temple")) return heroTempleImage;
-  if (raw.includes("church") || raw.includes("mosque")) return heroSacredImage;
-  if (raw.includes("fort") || raw.includes("cave")) return heroHeritageImage;
-  if (raw.includes("hill station") || compact.includes("hillstation")) return heroViewpointImage;
-  if (raw.includes("viewpoint") || raw.includes("view point")) return heroViewpointImage;
-  if (raw.includes("hill") || raw.includes("mountain")) return heroHillsImage;
-  if (raw.includes("lake") || raw.includes("dam") || raw.includes("river") || raw.includes("water")) return heroWaterbodyImage;
-  if (raw.includes("park")) return heroDefaultImage;
+  // 1) Prefer explicit category mapping when available.
+  if (categoryText.includes("waterfall") || categoryText.includes("falls") || categoryCompact.includes("waterfall")) return heroWaterfallImage;
+  if (categoryText.includes("beach")) return heroBeachImage;
+  if (categoryText.includes("temple")) return heroTempleImage;
+  if (categoryText.includes("church") || categoryText.includes("mosque")) return heroSacredImage;
+  if (categoryText.includes("fort") || categoryText.includes("cave")) return heroHeritageImage;
+  if (categoryText.includes("hill station") || categoryCompact.includes("hillstation")) return heroViewpointImage;
+  if (categoryText.includes("viewpoint") || categoryText.includes("view point")) return heroViewpointImage;
+  if (categoryText.includes("hill") || categoryText.includes("mountain")) return heroHillsImage;
+  if (categoryText.includes("lake") || categoryText.includes("dam") || categoryText.includes("river") || categoryText.includes("water")) return heroWaterbodyImage;
+  if (categoryText.includes("park")) return heroDefaultImage;
+
+  // 2) Fallback to location-name keyword mapping.
+  if (locationText.includes("waterfall") || locationText.includes("falls") || locationCompact.includes("waterfall")) return heroWaterfallImage;
+  if (
+    locationText.includes("beach")
+    || locationText.includes("shore")
+    || locationText.includes("coast")
+    || locationText.includes("coastal")
+    || locationText.includes("bay")
+    || locationText.includes("harbour")
+    || locationText.includes("harbor")
+  ) return heroBeachImage;
+  if (locationText.includes("temple")) return heroTempleImage;
+  if (locationText.includes("church") || locationText.includes("mosque")) return heroSacredImage;
+  if (locationText.includes("fort") || locationText.includes("cave")) return heroHeritageImage;
+  if (locationText.includes("hill station") || locationCompact.includes("hillstation")) return heroViewpointImage;
+  if (locationText.includes("viewpoint") || locationText.includes("view point")) return heroViewpointImage;
+  if (locationText.includes("hill") || locationText.includes("mountain")) return heroHillsImage;
+  if (locationText.includes("lake") || locationText.includes("dam") || locationText.includes("river") || locationText.includes("water")) return heroWaterbodyImage;
+  if (locationText.includes("park")) return heroDefaultImage;
 
   return heroForestImage;
 }
