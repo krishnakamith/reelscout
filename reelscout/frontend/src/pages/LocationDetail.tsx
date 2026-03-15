@@ -33,7 +33,6 @@ interface LocationDetailResponse {
 
 interface ReelItem {
   short_code?: string;
-  ai_summary?: string;
   comments_dump?: string[];
   author_handle?: string;
   selected_frame_timestamps?: number[];
@@ -72,15 +71,6 @@ const insightIcons: React.ElementType[] = [Eye, CircleDollarSign, Footprints, Sp
 
 function prettifyLabel(key: string) {
   return key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function normalizeFactText(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/\[score:\s*\d+\]\s*\([^)]+\)\s*/g, "")
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function getReelSourceId(reel: ReelItem, index: number) {
@@ -355,22 +345,6 @@ const LocationDetail = () => {
               });
             }
 
-            // B. Grab AI Summary as a fallback fact
-            if (typeof reel?.ai_summary === "string" && reel.ai_summary.trim()) {
-              const factText = reel.ai_summary.trim();
-              const key = `AI Summary::${normalizeFactText(factText)}`;
-              if (groupedFacts.has(key)) {
-                groupedFacts.get(key)!.reelSources.add(reelSourceId);
-              } else {
-                groupedFacts.set(key, {
-                  id: `summary-${reel.short_code ?? index}`,
-                  category: "AI Summary",
-                  fact: factText,
-                  source: reel.short_code ? `Reel ${reel.short_code}` : undefined,
-                  reelSources: new Set<string>([reelSourceId]),
-                });
-              }
-            }
           });
 
           // Sort the facts by highest verified count first

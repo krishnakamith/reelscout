@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { MapPin, Plus, Sparkles, Film, Compass, MessageCircle } from "lucide-react";
+import { MapPin, Plus, Sparkles, Film, Compass, MessageCircle, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KeralaMap } from "@/components/KeralaMap";
 import { ChatbotSidebar } from "@/components/ChatbotSidebar";
@@ -181,17 +181,17 @@ const Index = () => {
                     HOW IT WORKS
                   </p>
                   <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-left">
-                    <div className="rounded-xl border border-border/60 bg-background/30 px-3 py-2 backdrop-blur-sm">
-                      <p className="font-semibold text-foreground">Contribute</p>
-                      <p className="text-muted-foreground mt-1">Submit reels to grow shared destination intel.</p>
+                    <div className="rounded-xl border border-orange-300/70 bg-orange-100/85 px-3 py-2 shadow-sm">
+                      <p className="font-semibold text-orange-900">Contribute</p>
+                      <p className="text-orange-800/90 mt-1">Submit reels to grow shared destination intel.</p>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-background/30 px-3 py-2 backdrop-blur-sm">
-                      <p className="font-semibold text-foreground">Discover</p>
-                      <p className="text-muted-foreground mt-1">Find places through the chatbot or interactive map.</p>
+                    <div className="rounded-xl border border-orange-300/70 bg-orange-100/85 px-3 py-2 shadow-sm">
+                      <p className="font-semibold text-orange-900">Discover</p>
+                      <p className="text-orange-800/90 mt-1">Find places through the chatbot or interactive map.</p>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-background/30 px-3 py-2 backdrop-blur-sm">
-                      <p className="font-semibold text-foreground">Plan</p>
-                      <p className="text-muted-foreground mt-1">Use data to plan your trip.</p>
+                    <div className="rounded-xl border border-orange-300/70 bg-orange-100/85 px-3 py-2 shadow-sm">
+                      <p className="font-semibold text-orange-900">Plan</p>
+                      <p className="text-orange-800/90 mt-1">Use data to plan your trip.</p>
                     </div>
                   </div>
                 </div>
@@ -304,8 +304,10 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-8 border-t border-border">
         <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p className="text-sm">
-            © 2026 ReelScout — Finding Hidden Gems in Kerala
+          <p className="text-sm inline-flex items-center justify-center gap-1">
+            Made with
+            <Heart className="h-3.5 w-3.5 text-red-500 fill-red-500" />
+            for travelers who seek hidden gems
           </p>
         </div>
       </footer>
@@ -317,4 +319,5 @@ const Index = () => {
 };
 
 export default Index;
+
 
