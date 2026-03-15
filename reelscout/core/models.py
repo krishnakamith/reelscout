@@ -69,6 +69,9 @@ class ScrapedReel(models.Model):
     ai_summary = models.TextField(null=True, blank=True)
     selected_frame_timestamps = models.JSONField(default=list, blank=True)
 
+    extracted_general_info = models.JSONField(default=dict, blank=True, help_text="Subjective info strictly from this reel")
+    extracted_known_facts = models.JSONField(default=dict, blank=True, help_text="Objective facts strictly from this reel")
+
     # 7. STATUS
     is_processed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

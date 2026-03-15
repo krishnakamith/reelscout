@@ -26,7 +26,7 @@ class ScrapedReelSerializer(serializers.ModelSerializer):
         fields = [
             'short_code', 'original_url', 'thumbnail_url',
             'author_handle', 'view_count', 'like_count',
-            'comments_dump', 'ai_summary', 'selected_frame_timestamps', 'frames'
+            'comments_dump', 'ai_summary', 'selected_frame_timestamps', 'frames','extracted_general_info', 'extracted_known_facts',
         ]
 
 class LocationRevisionSerializer(serializers.ModelSerializer):

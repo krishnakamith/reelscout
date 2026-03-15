@@ -433,6 +433,9 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                 )
                 reel.selected_frame_timestamps = selected_frame_timestamps
 
+                reel.extracted_general_info = general_info
+                reel.extracted_known_facts = known_facts
+                
                 reel.is_processed = True
                 reel.save()
 

@@ -23,6 +23,8 @@ export interface ReelData {
   comments_dump?: Array<string | Record<string, unknown>> | null;
   ai_summary?: string | null;
   selected_frame_timestamps?: number[] | null;
+  extracted_general_info?: Record<string, string>;
+  extracted_known_facts?: Record<string, string>;
   frames?: Array<{
     timestamp: number;
     image_url?: string | null;
@@ -35,3 +37,4 @@ export interface LocationRevision {
   comment: string;
   created_at: string;
 }
+

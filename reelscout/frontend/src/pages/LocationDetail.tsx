@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from "react";
+﻿// reelscout/frontend/src/pages/LocationDetail.tsx
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import HeroSection from "@/components/location/HeroSection";
 import BentoInsights from "@/components/location/BentoInsights";
@@ -36,6 +37,8 @@ interface ReelItem {
   comments_dump?: string[];
   author_handle?: string;
   selected_frame_timestamps?: number[];
+  extracted_general_info?: Record<string, string>;
+  extracted_known_facts?: Record<string, string>;
   frames?: Array<{
     timestamp: number;
     image_url?: string | null;
@@ -232,57 +235,111 @@ const LocationDetail = () => {
           if (selectedGalleryFrames.length > 0) {
             setGalleryFrames(selectedGalleryFrames.slice(0, 18));
           }
-        }
 
-        const mappedInsights: InsightItem[] = [];
-        if (data?.general_info) {
-          Object.entries(data.general_info)
-            .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
-            .slice(0, 6)
-            .forEach(([key, value], index) => {
-              mappedInsights.push({
-                icon: insightIcons[index % insightIcons.length],
-                label: prettifyLabel(key),
-                value: value.trim(),
-                span: index === 0 ? "col-span-1 sm:col-span-2" : "col-span-1",
+          // ==========================================
+          // 1. DYNAMICALLY AGGREGATE INSIGHTS (GENERAL INFO)
+          // ==========================================
+          const insightMap = new Map<string, { label: string; value: string; count: number }>();
+
+          // Fallback: load legacy master location data first so it isn't lost
+          if (data?.general_info) {
+             Object.entries(data.general_info).forEach(([key, val]) => {
+                if (typeof val === "string" && val.trim()) {
+                   const label = prettifyLabel(key);
+                   const factText = val.trim();
+                   const normKey = normalizeFactText(`${label} ${factText}`);
+                   insightMap.set(normKey, { label, value: factText, count: 1 });
+                }
+             });
+          }
+
+          // Iterate through every reel to extract and stack its subjective info
+          data.reels.forEach((reel) => {
+            if (reel.extracted_general_info) {
+              Object.entries(reel.extracted_general_info).forEach(([key, val]) => {
+                if (typeof val === "string" && val.trim()) {
+                  const label = prettifyLabel(key);
+                  const factText = val.trim();
+                  const normKey = normalizeFactText(`${label} ${factText}`);
+
+                  if (insightMap.has(normKey)) {
+                    insightMap.get(normKey)!.count += 1;
+                  } else {
+                    insightMap.set(normKey, { label, value: factText, count: 1 });
+                  }
+                }
               });
-            });
-        }
-        if (mappedInsights.length > 0) {
-          setInsights(mappedInsights);
-        }
+            }
+          });
 
-        if (Array.isArray(data?.reels)) {
+          // Sort by highest verification count, format for BentoInsights
+          const mappedInsights = Array.from(insightMap.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 6)
+            .map((item, index) => ({
+              icon: insightIcons[index % insightIcons.length],
+              label: item.label,
+              value: item.value,
+              // Only show the detail badge if verified in more than 1 place
+              detail: item.count > 1 ? `Verified in ${item.count} reels` : undefined, 
+              span: index === 0 ? "col-span-1 sm:col-span-2" : "col-span-1",
+            }));
+
+          if (mappedInsights.length > 0) {
+            setInsights(mappedInsights);
+          }
+
+          // ==========================================
+          // 2. DYNAMICALLY AGGREGATE KNOWN FACTS
+          // ==========================================
           const groupedFacts = new Map<string, ReelFactItem>();
 
+          // Fallback: load legacy master known facts
           if (data?.known_facts) {
-            Object.entries(data.known_facts)
-              .filter(([, value]) => typeof value === "string" && value.trim().length > 0)
-              .forEach(([key, value], index) => {
-                const factText = value.trim();
-                const normalized = normalizeFactText(`${key} ${factText}`);
-                const existing = groupedFacts.get(normalized);
-                if (existing) {
-                  existing.verifiedCount = (existing.verifiedCount ?? 1) + 1;
-                  return;
+             Object.entries(data.known_facts).forEach(([key, val], index) => {
+                if (typeof val === "string" && val.trim()) {
+                    const factText = val.trim();
+                    const normKey = normalizeFactText(`${key} ${factText}`);
+                    groupedFacts.set(normKey, {
+                        id: `known-fact-base-${index}`,
+                        category: prettifyLabel(key),
+                        fact: factText,
+                        source: "Location knowledge base",
+                        verifiedCount: 1,
+                    });
                 }
-                groupedFacts.set(normalized, {
-                  id: `known-fact-${index}`,
-                  category: prettifyLabel(key),
-                  fact: factText,
-                  source: "Location knowledge base",
-                  verifiedCount: 1,
-                });
-              });
+             });
           }
 
           data.reels.forEach((reel, index) => {
+            // A. Grab objective facts strictly from this reel
+            if (reel.extracted_known_facts) {
+              Object.entries(reel.extracted_known_facts).forEach(([key, val]) => {
+                if (typeof val === "string" && val.trim()) {
+                  const factText = val.trim();
+                  const normKey = normalizeFactText(`${key} ${factText}`);
+
+                  if (groupedFacts.has(normKey)) {
+                    groupedFacts.get(normKey)!.verifiedCount! += 1;
+                  } else {
+                    groupedFacts.set(normKey, {
+                      id: `reel-fact-${reel.short_code ?? index}-${key}`,
+                      category: prettifyLabel(key),
+                      fact: factText,
+                      source: reel.short_code ? `Reel ${reel.short_code}` : "User Reel",
+                      verifiedCount: 1,
+                    });
+                  }
+                }
+              });
+            }
+
+            // B. Grab AI Summary as a fallback fact
             if (typeof reel?.ai_summary === "string" && reel.ai_summary.trim()) {
               const factText = reel.ai_summary.trim();
               const key = `AI Summary::${normalizeFactText(factText)}`;
-              const existing = groupedFacts.get(key);
-              if (existing) {
-                existing.verifiedCount = (existing.verifiedCount ?? 1) + 1;
+              if (groupedFacts.has(key)) {
+                groupedFacts.get(key)!.verifiedCount! += 1;
               } else {
                 groupedFacts.set(key, {
                   id: `summary-${reel.short_code ?? index}`,
@@ -295,9 +352,9 @@ const LocationDetail = () => {
             }
           });
 
-          const mappedFacts = Array.from(groupedFacts.values()).sort(
-            (a, b) => (b.verifiedCount ?? 1) - (a.verifiedCount ?? 1)
-          );
+          // Sort the facts by highest verified count first
+          const mappedFacts = Array.from(groupedFacts.values())
+            .sort((a, b) => (b.verifiedCount ?? 1) - (a.verifiedCount ?? 1));
 
           if (mappedFacts.length > 0) {
             setFacts(mappedFacts.slice(0, 8));
