@@ -1,5 +1,21 @@
 import { useState, useEffect } from "react";
-import { MapPin, Coffee, ShoppingBag, Landmark, UtensilsCrossed, Edit2, Check, Plus, Trash, Info } from "lucide-react";
+import { 
+  MapPin, Coffee, ShoppingBag, Landmark, 
+  UtensilsCrossed, Edit2, Check, Plus, Trash, Info 
+} from "lucide-react";
+
+// React-Leaflet imports
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// Fix for Leaflet's default marker icon paths in Vite/React
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
 
 // Helper to pick icons dynamically based on the place "type"
 const getIconForType = (type: string) => {
@@ -38,18 +54,19 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
   // Fallback coordinates if none are provided
   const lat = latitude ? parseFloat(latitude) : 34.9949;
   const lng = longitude ? parseFloat(longitude) : 135.7850;
+  
+  // Coordinate tuple for Leaflet
+  const position: [number, number] = [lat, lng];
 
   const handleSave = async () => {
     if (!locationSlug) return;
     setIsSaving(true);
     
     try {
-      // Assuming you have a standard DRF generic view, PATCH will update just this field
       const response = await fetch(`/api/locations/${locationSlug}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          // 'X-CSRFToken': getCookie('csrftoken') // Add if you are using session auth instead of tokens
         },
         body: JSON.stringify({ nearby_places: places }),
       });
@@ -90,19 +107,28 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
           Explore what's around — extracted from reel mentions
         </p>
 
-        {/* Dynamic Map Embed (OpenStreetMap is free and requires no API key) */}
-        <div className="relative w-full h-72 sm:h-96 rounded-2xl overflow-hidden bg-muted mb-10 shadow-inner border border-border">
+        {/* Interactive Leaflet Map */}
+        <div className="relative w-full h-72 sm:h-96 rounded-2xl overflow-hidden bg-muted mb-10 shadow-inner border border-border z-0">
           {latitude && longitude ? (
-            <iframe
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              scrolling="no"
-              marginHeight={0}
-              marginWidth={0}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}&layer=mapnik&marker=${lat}%2C${lng}`}
-              style={{ filter: "contrast(0.9) opacity(0.9)" }} // slight styling to match vibes
-            ></iframe>
+            <MapContainer 
+              center={position} 
+              zoom={15} 
+              scrollWheelZoom={false} 
+              className="w-full h-full"
+              style={{ zIndex: 10 }} // Ensure it stays behind fixed UI elements like sidebars
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+              />
+              <Marker position={position}>
+                <Popup className="font-sans">
+                  <span className="font-semibold text-sm">
+                    {locationSlug ? locationSlug.replace(/-/g, ' ').toUpperCase() : 'Main Destination'}
+                  </span>
+                </Popup>
+              </Marker>
+            </MapContainer>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center flex-col gap-3">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
