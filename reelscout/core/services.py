@@ -1,5 +1,6 @@
 import re
 import math
+import os
 import requests
 import json
 import time
@@ -444,6 +445,35 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
                 print(f"✅ TRANSCRIPT: {reel.transcript_text[:50]}...")
                 print(f"📍 LINKED TO LOCATION: {reel.location.name if reel.location else 'None'}")
+
+                print("🧹 Cleaning up unused media files to save space...")
+                
+                # 1. Delete Video and Audio files from disk and clear DB fields
+                if reel.audio_file:
+                    if os.path.isfile(reel.audio_file.path): 
+                        os.remove(reel.audio_file.path)
+                    reel.audio_file = None
+                
+                if reel.video_file:
+                    if os.path.isfile(reel.video_file.path): 
+                        os.remove(reel.video_file.path)
+                    reel.video_file = None
+                
+                reel.save() # Save the nullified file fields
+                
+                # 2. Delete Unused Frames (Keep the AI-selected ones)
+                # Convert the selected timestamps to a set of rounded floats for accurate matching
+                selected_ts = {round(float(ts), 2) for ts in reel.selected_frame_timestamps}
+                deleted_frames_count = 0
+                
+                for frame in reel.frames.all():
+                    if round(float(frame.timestamp), 2) not in selected_ts:
+                        frame.delete() # Triggers the post_delete signal we added to delete the physical .jpg
+                        deleted_frames_count += 1
+                        
+                print(f"✨ Cleanup complete! Retained {len(selected_ts)} local frames, deleted {deleted_frames_count} unused frames, video, and audio.")
+                # 👆 --- END MEDIA CLEANUP --- 👆
+
             except Exception as e:
                 print(f"⚠️ Failed to parse Gemini JSON: {e}")
 

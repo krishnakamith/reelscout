@@ -24,10 +24,14 @@ function pickHeroImage(category?: string, locationName?: string) {
   const locationText = String(locationName || "").trim().toLowerCase();
   const categoryCompact = categoryText.replace(/[\s_-]+/g, "");
   const locationCompact = locationText.replace(/[\s_-]+/g, "");
+  const hasAny = (text: string, patterns: string[]) => patterns.some((pattern) => text.includes(pattern));
 
   // 1) Prefer explicit category mapping when available.
   if (categoryText.includes("waterfall") || categoryText.includes("falls") || categoryCompact.includes("waterfall")) return heroWaterfallImage;
-  if (categoryText.includes("beach")) return heroBeachImage;
+  if (
+    hasAny(categoryText, ["beach", "shore", "coast", "coastal", "bay", "harbour", "harbor", "seaside", "sea side", "island"])
+    || categoryCompact.includes("seaside")
+  ) return heroBeachImage;
   if (categoryText.includes("temple")) return heroTempleImage;
   if (categoryText.includes("church") || categoryText.includes("mosque")) return heroSacredImage;
   if (categoryText.includes("fort") || categoryText.includes("cave")) return heroHeritageImage;

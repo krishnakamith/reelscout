@@ -1,5 +1,8 @@
 from django.db import models
 from django.utils.text import slugify
+import os
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 class Location(models.Model):
     # Basic Info
@@ -106,3 +109,20 @@ class LocationRevision(models.Model):
 
     def __str__(self):
         return f"Revision for {self.location.name} at {self.created_at}"
+    
+@receiver(post_delete, sender=ReelFrame)
+def auto_delete_frame_file_on_delete(sender, instance, **kwargs):
+    """Deletes the image file from filesystem when corresponding ReelFrame is deleted."""
+    if instance.image:
+        if os.path.isfile(instance.image.path):
+            os.remove(instance.image.path)
+
+@receiver(post_delete, sender=ScrapedReel)
+def auto_delete_video_audio_on_delete(sender, instance, **kwargs):
+    """Deletes video and audio files when a ScrapedReel is deleted."""
+    if instance.video_file:
+        if os.path.isfile(instance.video_file.path):
+            os.remove(instance.video_file.path)
+    if instance.audio_file:
+        if os.path.isfile(instance.audio_file.path):
+            os.remove(instance.audio_file.path)

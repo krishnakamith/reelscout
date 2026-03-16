@@ -1,3 +1,4 @@
+import os
 import faiss
 import pickle
 import numpy as np
@@ -18,14 +19,20 @@ def add_reel_to_index(reel):
 
     vector = np.array([vector]).astype("float32")
 
-    index = faiss.read_index(INDEX_PATH)
+    # Check if the index exists before trying to read it
+    if not os.path.exists(INDEX_PATH):
+        print(f"⚠️ {INDEX_PATH} not found. Creating a new text index...")
+        dimension = vector.shape[1]
+        index = faiss.IndexFlatL2(dimension)
+        metadata = []
+    else:
+        index = faiss.read_index(INDEX_PATH)
+        with open(META_PATH, "rb") as f:
+            metadata = pickle.load(f)
 
     index.add(vector)
 
     faiss.write_index(index, INDEX_PATH)
-
-    with open(META_PATH, "rb") as f:
-        metadata = pickle.load(f)
 
     metadata.append({
         "reel_id": reel.id,
