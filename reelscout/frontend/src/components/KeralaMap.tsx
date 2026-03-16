@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { useNavigate } from "react-router-dom";
 import { GeoJSON, MapContainer, Marker, TileLayer, Tooltip as LeafletTooltip, useMap } from "react-leaflet";
 import { divIcon, geoJSON, type DivIcon, type LatLngBoundsExpression } from "leaflet";
 import type { FeatureCollection, Geometry } from "geojson";
+import { MapPin } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 
 interface LocationData {
@@ -28,27 +30,25 @@ const keralaBounds: [[number, number], [number, number]] = [
 const normalizeText = (value?: string | null) => String(value ?? "").trim().toLowerCase();
 
 function createTrackerPinIcon(): DivIcon {
+  const pinSvg = renderToStaticMarkup(
+    createElement(MapPin, {
+      className:
+        "h-6 w-6 transition-colors duration-300 text-primary-foreground fill-kerala-terracotta group-hover:text-primary-foreground group-hover:fill-kerala-terracotta",
+      "aria-hidden": true,
+    })
+  );
+
   return divIcon({
     className: "bg-transparent border-none",
-    iconSize: [34, 46],
-    iconAnchor: [17, 44],
-    tooltipAnchor: [0, -34],
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    tooltipAnchor: [0, -20],
     html: `
-      <div style="width:34px;height:46px;filter:drop-shadow(0 7px 10px rgba(0,0,0,0.28));">
-        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="46" viewBox="0 0 34 46" aria-hidden="true">
-          <defs>
-            <linearGradient id="tracker-pin-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#f3a173"/>
-              <stop offset="55%" stop-color="#e67a4f"/>
-              <stop offset="100%" stop-color="#cc5d37"/>
-            </linearGradient>
-          </defs>
-          <path d="M17 3.5C10.097 3.5 4.5 9.097 4.5 16c0 8.578 9.058 17.205 11.371 19.297a1.66 1.66 0 0 0 2.258 0C20.442 33.205 29.5 24.578 29.5 16 29.5 9.097 23.903 3.5 17 3.5z" fill="url(#tracker-pin-fill)" stroke="#ffffff" stroke-width="2.8"/>
-          <path d="M17 6.5c-5.077 0-9.2 4.122-9.2 9.2 0 1.114.2 2.179.568 3.166.266.714 1.129 1.043 1.815.713a37.38 37.38 0 0 0 8.278-5.648 35.276 35.276 0 0 0 6.499-7.255A9.154 9.154 0 0 0 17 6.5z" fill="#ffffff" opacity="0.18"/>
-          <circle cx="17" cy="16" r="6.45" fill="#ffffff"/>
-          <circle cx="17" cy="16" r="3.05" fill="#e67a4f"/>
-          <circle cx="17" cy="16" r="1.3" fill="#ffffff" opacity="0.72"/>
-        </svg>
+      <div class="group relative -ml-3 -mt-6 h-6 w-6 cursor-pointer transition-all duration-300 scale-100 hover:scale-125 hover:z-10">
+        <span class="pointer-events-none absolute inset-0 rounded-full bg-kerala-terracotta/55 opacity-0 transition-opacity duration-300 animate-none group-hover:opacity-100 group-hover:animate-ping"></span>
+        <div class="relative z-10 drop-shadow-[0_3px_5px_rgba(0,0,0,0.35)] group-hover:animate-pulse-soft">
+          ${pinSvg}
+        </div>
       </div>
     `,
   });
