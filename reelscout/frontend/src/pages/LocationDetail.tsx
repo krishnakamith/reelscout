@@ -394,15 +394,15 @@ const LocationDetail = () => {
       <BentoInsights
         insights={insights}
       />
-      <VerifiedReelData
-        facts={facts}
-        reelCount={reelCount}
-      />
       <MapSurroundings 
         locationSlug={slug}
         latitude={latitude}
         longitude={longitude}
         initialPlaces={nearbyPlaces}
+      />
+      <VerifiedReelData
+        facts={facts}
+        reelCount={reelCount}
       />
       <CommunityPulse locationSlug={slug} initialEntries={communityEntries} />
       <FrameGallery frames={galleryFrames} />

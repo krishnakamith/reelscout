@@ -42,6 +42,16 @@ const LEGEND_TYPES: PinType[] = [
   "other",
 ];
 
+const PIN_TYPE_OPTIONS = [
+  "Hotel",
+  "Activity",
+  "Toilet",
+  "Food / Cafe",
+  "Shopping",
+  "Transport",
+  "Other",
+];
+
 const resolvePinType = (rawType: string): PinType => {
   const typeText = String(rawType || "").trim().toLowerCase();
 
@@ -392,16 +402,20 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
                     onChange={(e) => updatePlace(i, 'name', e.target.value)}
                     className={`flex-1 p-2 rounded-md text-sm outline-none focus:ring-2 ${place.name.trim() === "" && saveError ? "bg-background border border-destructive focus:ring-destructive/30" : "bg-background border-none focus:ring-primary/30"}`}
                   />
-                  <input
-                    type="text"
-                    placeholder="Type (e.g. Hotel)"
-                    value={place.type}
+                  <select
+                    value={place.type || "Hotel"}
                     onChange={(e) => updatePlace(i, 'type', e.target.value)}
                     className="w-full sm:w-1/4 bg-background p-2 rounded-md text-sm border-none focus:ring-2 focus:ring-primary/30 outline-none"
-                  />
+                  >
+                    {PIN_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
-                    placeholder="Distance (e.g. 5 min walk)"
+                    placeholder="Any remarks"
                     value={place.distance}
                     onChange={(e) => updatePlace(i, 'distance', e.target.value)}
                     className="w-full sm:w-1/4 bg-background p-2 rounded-md text-sm border-none focus:ring-2 focus:ring-primary/30 outline-none"
