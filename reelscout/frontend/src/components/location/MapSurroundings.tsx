@@ -63,8 +63,9 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
   // with stale data if the parent component re-renders before refetching from Django!
   const initialPlacesStr = JSON.stringify(initialPlaces);
   useEffect(() => {
-    if (initialPlaces && initialPlaces.length > 0) {
-      setPlaces(initialPlaces);
+    const parsedPlaces = JSON.parse(initialPlacesStr);
+    if (Array.isArray(parsedPlaces) && parsedPlaces.length > 0) {
+      setPlaces(parsedPlaces);
     }
   }, [initialPlacesStr]);
 
@@ -309,15 +310,15 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
               places.map((place, i) => {
                 const Icon = getIconForType(place.type);
                 return (
-                  <div key={i} className="nearby-card flex-shrink-0 w-48 bg-background border border-border rounded-xl">
-                    <div className="p-4">
+                  <div key={i} className="nearby-card flex-shrink-0 w-64 bg-background border border-border rounded-xl">
+                    <div className="p-5">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3">
                         <Icon className="w-5 h-5 text-primary" />
                       </div>
-                      <h4 className="text-sm font-semibold text-foreground mb-1 truncate">
+                      <h4 className="text-sm font-semibold text-foreground mb-1 whitespace-normal break-words">
                         {place.name}
                       </h4>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground whitespace-normal break-words leading-relaxed">
                         {place.type} {place.distance && `· ${place.distance}`}
                       </p>
                     </div>
