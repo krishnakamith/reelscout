@@ -22,6 +22,7 @@ interface LocationDetailResponse {
   category?: string;
   district?: string;
   specific_area?: string;
+  alternate_names?: string[];
   general_info?: Record<string, string>;
   known_facts?: Record<string, string>;
   reels?: ReelItem[];
@@ -298,6 +299,16 @@ const LocationDetail = () => {
           // ==========================================
           const groupedFacts = new Map<string, ReelFactItem & { reelSources: Set<string> }>();
 
+          const normalizedLocationName = String(data?.name ?? "").trim().toLowerCase();
+          const alternateNames = Array.isArray(data?.alternate_names)
+            ? data.alternate_names
+                .filter((name): name is string => typeof name === "string")
+                .map((name) => name.trim())
+                .filter((name) => name.length > 0)
+                .filter((name, index, arr) => arr.findIndex((val) => val.toLowerCase() === name.toLowerCase()) === index)
+                .filter((name) => name.toLowerCase() !== normalizedLocationName)
+            : [];
+
           // Fallback: load legacy master known facts
           if (data?.known_facts) {
              Object.entries(data.known_facts).forEach(([key, val], index) => {
@@ -312,6 +323,16 @@ const LocationDetail = () => {
                     });
                 }
              });
+          }
+
+          if (alternateNames.length > 0) {
+            groupedFacts.set("alternate names", {
+              id: "known-fact-alternate-names",
+              category: "Alternate Names",
+              fact: alternateNames.join(", "),
+              source: "Location aliases",
+              reelSources: new Set<string>(),
+            });
           }
 
           data.reels.forEach((reel, index) => {
