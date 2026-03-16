@@ -1,3 +1,4 @@
+import os
 import faiss
 import pickle
 import numpy as np
@@ -18,16 +19,6 @@ def add_frames_to_index(reel):
         print("⚠ No frames found for reel")
         return
 
-    try:
-        index = faiss.read_index(FRAME_INDEX_PATH)
-
-        with open(FRAME_META_PATH, "rb") as f:
-            metadata = pickle.load(f)
-
-    except Exception:
-        print("⚠ Frame index not found. Build it first.")
-        return
-
     vectors = []
 
     for frame in frames:
@@ -38,16 +29,29 @@ def add_frames_to_index(reel):
 
         vectors.append(vec)
 
-        metadata.append({
-            "reel_id": reel.id,
-            "frame_id": frame.id
-        })
-
     vectors = np.array(vectors).astype("float32")
+
+    # Check if the frame index exists before trying to read it
+    if not os.path.exists(FRAME_INDEX_PATH):
+        print(f"⚠️ {FRAME_INDEX_PATH} not found. Creating a new frame index...")
+        dimension = vectors.shape[1]
+        index = faiss.IndexFlatL2(dimension)
+        metadata = []
+    else:
+        index = faiss.read_index(FRAME_INDEX_PATH)
+        with open(FRAME_META_PATH, "rb") as f:
+            metadata = pickle.load(f)
 
     index.add(vectors)
 
     faiss.write_index(index, FRAME_INDEX_PATH)
+
+    # Add metadata for every frame we just processed
+    for frame in frames:
+        metadata.append({
+            "reel_id": reel.id,
+            "frame_id": frame.id
+        })
 
     with open(FRAME_META_PATH, "wb") as f:
         pickle.dump(metadata, f)

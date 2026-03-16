@@ -1,11 +1,8 @@
-import { createElement, useEffect, useMemo, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GeoJSON, MapContainer, Marker, TileLayer, Tooltip as LeafletTooltip, useMap } from "react-leaflet";
 import { divIcon, geoJSON, type DivIcon, type LatLngBoundsExpression } from "leaflet";
 import type { FeatureCollection, Geometry } from "geojson";
-import type { LucideIcon } from "lucide-react";
-import { Building2, Castle, Landmark, MapPin, Mountain, TreePalm, Trees, Waves } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 
 interface LocationData {
@@ -23,24 +20,6 @@ interface DistrictProperties {
   DISTRICT?: string;
 }
 
-type CategoryPinKey = "water" | "beach" | "sacred" | "heritage" | "mountain" | "nature" | "urban" | "default";
-
-interface CategoryPinMeta {
-  color: string;
-  icon: LucideIcon;
-}
-
-const CATEGORY_PIN_META: Record<CategoryPinKey, CategoryPinMeta> = {
-  water: { color: "#0ea5e9", icon: Waves },
-  beach: { color: "#f59e0b", icon: TreePalm },
-  sacred: { color: "#f97316", icon: Landmark },
-  heritage: { color: "#b45309", icon: Castle },
-  mountain: { color: "#16a34a", icon: Mountain },
-  nature: { color: "#22c55e", icon: Trees },
-  urban: { color: "#64748b", icon: Building2 },
-  default: { color: "#dc2626", icon: MapPin },
-};
-
 const keralaBounds: [[number, number], [number, number]] = [
   [8.3, 75.05],
   [12.7, 77.15],
@@ -48,65 +27,28 @@ const keralaBounds: [[number, number], [number, number]] = [
 
 const normalizeText = (value?: string | null) => String(value ?? "").trim().toLowerCase();
 
-function resolveCategoryPin(category?: string | null): CategoryPinKey {
-  const categoryText = normalizeText(category);
-
-  if (!categoryText) return "default";
-
-  if (["beach", "coast", "shore", "seashore"].some((tag) => categoryText.includes(tag))) return "beach";
-
-  if (["waterfall", "falls", "lake", "river", "dam", "water", "backwater"].some((tag) => categoryText.includes(tag))) {
-    return "water";
-  }
-
-  if (["temple", "church", "mosque", "shrine", "sacred", "pilgrim"].some((tag) => categoryText.includes(tag))) {
-    return "sacred";
-  }
-
-  if (["fort", "heritage", "historic", "cave", "ruins", "museum", "palace"].some((tag) => categoryText.includes(tag))) {
-    return "heritage";
-  }
-
-  if (["hill", "mountain", "peak", "viewpoint", "view point"].some((tag) => categoryText.includes(tag))) {
-    return "mountain";
-  }
-
-  if (["forest", "park", "wildlife", "sanctuary", "reserve"].some((tag) => categoryText.includes(tag))) {
-    return "nature";
-  }
-
-  if (["city", "town", "street", "market", "urban"].some((tag) => categoryText.includes(tag))) {
-    return "urban";
-  }
-
-  return "default";
-}
-
-function createCategoryIcon(pinKey: CategoryPinKey): DivIcon {
-  const meta = CATEGORY_PIN_META[pinKey];
-  const iconSvg = renderToStaticMarkup(
-    createElement(meta.icon, {
-      size: 14,
-      strokeWidth: 2.4,
-      color: meta.color,
-      "aria-hidden": true,
-    })
-  );
-
+function createTrackerPinIcon(): DivIcon {
   return divIcon({
     className: "bg-transparent border-none",
-    iconSize: [30, 42],
-    iconAnchor: [15, 42],
-    tooltipAnchor: [0, -32],
+    iconSize: [34, 46],
+    iconAnchor: [17, 44],
+    tooltipAnchor: [0, -34],
     html: `
-      <div style="position: relative; width: 30px; height: 42px;">
-        <svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M15 1.5C8.096 1.5 2.5 7.096 2.5 14c0 8.889 10.705 19.015 11.161 19.441a1.97 1.97 0 0 0 2.678 0C16.795 33.015 27.5 22.889 27.5 14 27.5 7.096 21.904 1.5 15 1.5Z" fill="${meta.color}" stroke="#ffffff" stroke-width="1.5"/>
-          <circle cx="15" cy="14" r="7" fill="#ffffff"/>
+      <div style="width:34px;height:46px;filter:drop-shadow(0 7px 10px rgba(0,0,0,0.28));">
+        <svg xmlns="http://www.w3.org/2000/svg" width="34" height="46" viewBox="0 0 34 46" aria-hidden="true">
+          <defs>
+            <linearGradient id="tracker-pin-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#f3a173"/>
+              <stop offset="55%" stop-color="#e67a4f"/>
+              <stop offset="100%" stop-color="#cc5d37"/>
+            </linearGradient>
+          </defs>
+          <path d="M17 3.5C10.097 3.5 4.5 9.097 4.5 16c0 8.578 9.058 17.205 11.371 19.297a1.66 1.66 0 0 0 2.258 0C20.442 33.205 29.5 24.578 29.5 16 29.5 9.097 23.903 3.5 17 3.5z" fill="url(#tracker-pin-fill)" stroke="#ffffff" stroke-width="2.8"/>
+          <path d="M17 6.5c-5.077 0-9.2 4.122-9.2 9.2 0 1.114.2 2.179.568 3.166.266.714 1.129 1.043 1.815.713a37.38 37.38 0 0 0 8.278-5.648 35.276 35.276 0 0 0 6.499-7.255A9.154 9.154 0 0 0 17 6.5z" fill="#ffffff" opacity="0.18"/>
+          <circle cx="17" cy="16" r="6.45" fill="#ffffff"/>
+          <circle cx="17" cy="16" r="3.05" fill="#e67a4f"/>
+          <circle cx="17" cy="16" r="1.3" fill="#ffffff" opacity="0.72"/>
         </svg>
-        <div style="position: absolute; left: 50%; top: 14px; transform: translate(-50%, -50%); line-height: 0;">
-          ${iconSvg}
-        </div>
       </div>
     `,
   });
@@ -156,19 +98,7 @@ export function KeralaMap() {
     return Array.from(uniqueCategories.values()).sort((a, b) => a.localeCompare(b));
   }, [locations]);
 
-  const markerIcons = useMemo<Record<CategoryPinKey, DivIcon>>(
-    () => ({
-      water: createCategoryIcon("water"),
-      beach: createCategoryIcon("beach"),
-      sacred: createCategoryIcon("sacred"),
-      heritage: createCategoryIcon("heritage"),
-      mountain: createCategoryIcon("mountain"),
-      nature: createCategoryIcon("nature"),
-      urban: createCategoryIcon("urban"),
-      default: createCategoryIcon("default"),
-    }),
-    []
-  );
+  const defaultMarkerIcon = useMemo(() => createTrackerPinIcon(), []);
 
   const filteredLocations = useMemo(() => {
     return locations.filter((location) => {
@@ -345,14 +275,13 @@ export function KeralaMap() {
             const lng = parseFloat(String(location.longitude));
             if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-            const pinKey = resolveCategoryPin(location.category);
             const categoryLabel = String(location.category ?? "").trim() || "Uncategorized";
 
             return (
               <Marker
                 key={location.id}
                 position={[lat, lng]}
-                icon={markerIcons[pinKey]}
+                icon={defaultMarkerIcon}
                 eventHandlers={{
                   click: () => navigate(`/location/${location.slug}`),
                 }}
