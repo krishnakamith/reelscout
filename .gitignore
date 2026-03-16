@@ -37,3 +37,6 @@ Thumbs.db
 # --------------------
 node_modules/
 shell.py
+
+*.faiss
+*.pkl
