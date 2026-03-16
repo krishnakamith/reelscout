@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { 
   MapPin, Coffee, ShoppingBag, Landmark, 
   UtensilsCrossed, Edit2, Check, Plus, Trash, Info 
@@ -9,14 +9,6 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaf
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fix for Leaflet's default marker icon paths in Vite/React
-delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
-
 // Helper to pick icons dynamically based on the place "type"
 const getIconForType = (type: string) => {
   const t = type.toLowerCase();
@@ -24,6 +16,109 @@ const getIconForType = (type: string) => {
   if (t.includes("shop") || t.includes("souvenir") || t.includes("store")) return ShoppingBag;
   if (t.includes("restaurant") || t.includes("food") || t.includes("eat")) return UtensilsCrossed;
   return Landmark; // Default icon
+};
+
+type PinType = "origin" | "hotel" | "activity" | "toilet" | "food" | "shopping" | "transport" | "other";
+
+const PIN_META: Record<PinType, { label: string; color: string; glyph: string }> = {
+  origin: { label: "Main Location", color: "#dc2626", glyph: "M" },
+  hotel: { label: "Hotel / Stay", color: "#2563eb", glyph: "H" },
+  activity: { label: "Activity Spot", color: "#16a34a", glyph: "A" },
+  toilet: { label: "Toilet", color: "#a21caf", glyph: "T" },
+  food: { label: "Food / Cafe", color: "#ea580c", glyph: "F" },
+  shopping: { label: "Shop / Market", color: "#ca8a04", glyph: "S" },
+  transport: { label: "Transit / Parking", color: "#0f766e", glyph: "R" },
+  other: { label: "Other", color: "#475569", glyph: "O" },
+};
+
+const LEGEND_TYPES: PinType[] = [
+  "origin",
+  "hotel",
+  "activity",
+  "toilet",
+  "food",
+  "shopping",
+  "transport",
+  "other",
+];
+
+const resolvePinType = (rawType: string): PinType => {
+  const typeText = String(rawType || "").trim().toLowerCase();
+
+  if (!typeText) return "other";
+
+  if (
+    typeText.includes("hotel")
+    || typeText.includes("resort")
+    || typeText.includes("lodge")
+    || typeText.includes("homestay")
+    || typeText.includes("stay")
+    || typeText.includes("hostel")
+  ) return "hotel";
+
+  if (
+    typeText.includes("toilet")
+    || typeText.includes("restroom")
+    || typeText.includes("washroom")
+    || typeText.includes("bathroom")
+    || typeText === "wc"
+  ) return "toilet";
+
+  if (
+    typeText.includes("cafe")
+    || typeText.includes("coffee")
+    || typeText.includes("restaurant")
+    || typeText.includes("food")
+    || typeText.includes("eat")
+    || typeText.includes("tea")
+  ) return "food";
+
+  if (
+    typeText.includes("shop")
+    || typeText.includes("store")
+    || typeText.includes("souvenir")
+    || typeText.includes("market")
+  ) return "shopping";
+
+  if (
+    typeText.includes("bus")
+    || typeText.includes("station")
+    || typeText.includes("parking")
+    || typeText.includes("taxi")
+    || typeText.includes("metro")
+  ) return "transport";
+
+  if (
+    typeText.includes("activity")
+    || typeText.includes("adventure")
+    || typeText.includes("trek")
+    || typeText.includes("trail")
+    || typeText.includes("view")
+    || typeText.includes("park")
+    || typeText.includes("beach")
+    || typeText.includes("waterfall")
+  ) return "activity";
+
+  return "other";
+};
+
+const createPinIcon = (pinType: PinType) => {
+  const meta = PIN_META[pinType];
+
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="position: relative; width: 28px; height: 36px; display: flex; align-items: flex-start; justify-content: center;">
+        <div style="width: 22px; height: 22px; border-radius: 9999px; background: ${meta.color}; border: 2px solid #ffffff; color: #ffffff; font-size: 10px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.35);">
+          ${meta.glyph}
+        </div>
+        <div style="position: absolute; top: 18px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 12px solid ${meta.color}; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25));"></div>
+      </div>
+    `,
+    iconSize: [28, 36],
+    iconAnchor: [14, 34],
+    popupAnchor: [0, -28],
+  });
 };
 
 interface NearbyPlace {
@@ -75,6 +170,19 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
   
   // Coordinate tuple for Leaflet
   const position: [number, number] = [lat, lng];
+  const markerIcons = useMemo<Record<PinType, L.DivIcon>>(
+    () => ({
+      origin: createPinIcon("origin"),
+      hotel: createPinIcon("hotel"),
+      activity: createPinIcon("activity"),
+      toilet: createPinIcon("toilet"),
+      food: createPinIcon("food"),
+      shopping: createPinIcon("shopping"),
+      transport: createPinIcon("transport"),
+      other: createPinIcon("other"),
+    }),
+    []
+  );
 
   const handleSave = async () => {
     if (!locationSlug) return;
@@ -174,6 +282,23 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
           {isEditing && <span className="ml-2 text-primary font-medium animate-pulse">Click anywhere on the map to drop a new pin!</span>}
         </p>
 
+        <div className="mb-4 rounded-xl border border-border bg-background/70 px-3 py-2">
+          <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+            {LEGEND_TYPES.map((pinType) => {
+              const meta = PIN_META[pinType];
+              return (
+                <div key={pinType} className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card px-2.5 py-1 text-xs text-foreground">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: meta.color }}
+                  />
+                  <span>{meta.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Interactive Leaflet Map */}
         <div className={`relative w-full h-72 sm:h-96 rounded-2xl overflow-hidden bg-muted mb-10 shadow-inner border border-border z-0 ${isEditing ? 'cursor-crosshair ring-2 ring-primary/50' : ''}`}>
           {latitude && longitude ? (
@@ -190,7 +315,7 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
               />
               
               {/* Main Destination Marker */}
-              <Marker position={position}>
+              <Marker position={position} icon={markerIcons.origin}>
                 <Popup className="font-sans">
                   <span className="font-semibold text-sm">
                     {locationSlug ? locationSlug.replace(/-/g, ' ').toUpperCase() : 'Main Destination'}
@@ -203,14 +328,18 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
                 // BUGFIX: Strictly parse floats so Leaflet doesn't crash if Django returns strings
                 const pLat = place.lat ? parseFloat(place.lat.toString()) : NaN;
                 const pLng = place.lng ? parseFloat(place.lng.toString()) : NaN;
+                const pinType = resolvePinType(place.type);
 
                 if (!isNaN(pLat) && !isNaN(pLng)) {
                   return (
-                    <Marker key={i} position={[pLat, pLng]}>
+                    <Marker key={i} position={[pLat, pLng]} icon={markerIcons[pinType]}>
                       <Popup className="font-sans">
                         <span className="font-semibold text-sm">{place.name || "New Place"}</span>
                         <br />
-                        <span className="text-xs text-muted-foreground">{place.type}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {PIN_META[pinType].label}
+                          {place.type ? ` (${place.type})` : ""}
+                        </span>
                       </Popup>
                     </Marker>
                   );
