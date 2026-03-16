@@ -194,6 +194,31 @@ def _should_show_location_cards(query):
     return False
 
 
+def _sanitize_nearby_places(raw_places, limit=30):
+    if not isinstance(raw_places, list):
+        raise ValueError("nearby_places must be a list")
+
+    cleaned_places = []
+    for item in raw_places[:limit]:
+        if not isinstance(item, dict):
+            continue
+
+        name = str(item.get("name", "")).strip()
+        place_type = str(item.get("type", "")).strip() or "Place"
+        distance = str(item.get("distance", "")).strip()
+
+        if len(name) < 2:
+            continue
+
+        cleaned_places.append({
+            "name": name[:120],
+            "type": place_type[:60],
+            "distance": distance[:60],
+        })
+
+    return cleaned_places
+
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([])
@@ -230,6 +255,26 @@ class LocationDetailAPI(generics.RetrieveAPIView):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     lookup_field = 'slug'
+
+
+@api_view(['PATCH'])
+@authentication_classes([])
+@permission_classes([])
+def update_nearby_places(request, slug):
+    location = get_object_or_404(Location, slug=slug)
+
+    try:
+        cleaned_places = _sanitize_nearby_places(request.data.get('nearby_places', []))
+    except ValueError as e:
+        return Response({"error": str(e)}, status=400)
+
+    location.nearby_places = cleaned_places
+    location.save(update_fields=['nearby_places', 'last_updated'])
+
+    return Response({
+        "status": "success",
+        "nearby_places": location.nearby_places,
+    })
 
 
 @api_view(['POST'])

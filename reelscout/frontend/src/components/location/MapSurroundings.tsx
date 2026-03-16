@@ -10,7 +10,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
 // Fix for Leaflet's default marker icon paths in Vite/React
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
   iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
@@ -43,6 +43,7 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
   const [places, setPlaces] = useState<NearbyPlace[]>(initialPlaces);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Sync state if props load after initial render
   useEffect(() => {
@@ -60,31 +61,45 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
 
   const handleSave = async () => {
     if (!locationSlug) return;
+    setSaveError(null);
     setIsSaving(true);
     
     try {
-      const response = await fetch(`/api/locations/${locationSlug}/`, {
+      const payload = places
+        .map((place) => ({
+          name: place.name.trim(),
+          type: place.type.trim(),
+          distance: place.distance.trim(),
+        }))
+        .filter((place) => place.name.length > 0);
+
+      const response = await fetch(`/api/locations/${encodeURIComponent(locationSlug)}/nearby-places/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ nearby_places: places }),
+        body: JSON.stringify({ nearby_places: payload }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (response.ok) {
+        if (Array.isArray(data?.nearby_places)) {
+          setPlaces(data.nearby_places as NearbyPlace[]);
+        }
         setIsEditing(false);
       } else {
-        console.error("Failed to save nearby places");
+        throw new Error(data?.error || "Failed to save nearby places");
       }
     } catch (error) {
-      console.error("Error saving:", error);
+      setSaveError(error instanceof Error ? error.message : "Failed to save nearby places");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleAddPlace = () => {
-    setPlaces([...places, { name: "", type: "Activity", distance: "" }]);
+    setPlaces([...places, { name: "", type: "Hotel", distance: "" }]);
   };
 
   const updatePlace = (index: number, field: keyof NearbyPlace, value: string) => {
@@ -104,7 +119,7 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
           Map & Surroundings
         </h2>
         <p className="text-muted-foreground mb-8 text-sm">
-          Explore what's around — extracted from reel mentions
+          Add and edit nearby places of interest like hotels, cafes, and landmarks.
         </p>
 
         {/* Interactive Leaflet Map */}
@@ -172,7 +187,7 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
                 />
                 <input
                   type="text"
-                  placeholder="Type (e.g. Café)"
+                  placeholder="Type (e.g. Hotel)"
                   value={place.type}
                   onChange={(e) => updatePlace(i, 'type', e.target.value)}
                   className="w-full sm:w-1/4 bg-muted p-2 rounded-md text-sm border-none focus:ring-1 outline-none"
@@ -193,8 +208,9 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
               onClick={handleAddPlace}
               className="mt-2 flex items-center justify-center gap-2 text-sm text-muted-foreground p-3 border border-dashed rounded-lg hover:bg-muted/50 transition-colors"
             >
-              <Plus className="w-4 h-4" /> Add Place from Reel
+              <Plus className="w-4 h-4" /> Add Place of Interest
             </button>
+            {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
           </div>
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
@@ -232,3 +248,4 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
 };
 
 export default MapSurroundings;
+
