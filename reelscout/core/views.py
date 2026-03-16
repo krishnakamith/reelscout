@@ -210,11 +210,37 @@ def _sanitize_nearby_places(raw_places, limit=30):
         if len(name) < 2:
             continue
 
-        cleaned_places.append({
+        lat_value = item.get("lat", item.get("latitude"))
+        lng_value = item.get("lng", item.get("longitude"))
+
+        parsed_lat = None
+        parsed_lng = None
+
+        try:
+            if lat_value is not None and lat_value != "":
+                parsed_lat = round(float(lat_value), 6)
+            if lng_value is not None and lng_value != "":
+                parsed_lng = round(float(lng_value), 6)
+        except (TypeError, ValueError):
+            parsed_lat = None
+            parsed_lng = None
+
+        place_payload = {
             "name": name[:120],
             "type": place_type[:60],
             "distance": distance[:60],
-        })
+        }
+
+        if (
+            parsed_lat is not None
+            and parsed_lng is not None
+            and -90 <= parsed_lat <= 90
+            and -180 <= parsed_lng <= 180
+        ):
+            place_payload["lat"] = parsed_lat
+            place_payload["lng"] = parsed_lng
+
+        cleaned_places.append(place_payload)
 
     return cleaned_places
 
