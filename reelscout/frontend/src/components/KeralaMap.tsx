@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useNavigate } from "react-router-dom";
 import { GeoJSON, MapContainer, Marker, TileLayer, Tooltip as LeafletTooltip, useMap } from "react-leaflet";
@@ -72,6 +72,7 @@ export function KeralaMap() {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [targetBounds, setTargetBounds] = useState<LatLngBoundsExpression | null>(null);
+  const mapPaneRef = useRef<HTMLDivElement | null>(null);
 
   const districtOptions = useMemo(() => {
     if (!geoData?.features) return [];
@@ -171,6 +172,24 @@ export function KeralaMap() {
   }, []);
 
   const handleApplyFilters = () => {
+    const scrollMapPaneIntoView = () => {
+      const mapPane = mapPaneRef.current;
+      if (!mapPane) return;
+
+      const stickyHeaderOffset = 80;
+      const paneTop = mapPane.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({
+        top: Math.max(0, paneTop - stickyHeaderOffset),
+        behavior: "smooth",
+      });
+    };
+
+    if (!selectedDistrict && !selectedCategory) {
+      setTargetBounds(keralaBounds);
+      scrollMapPaneIntoView();
+      return;
+    }
+
     if (selectedDistrict && geoData) {
       const districtFeature = geoData.features.find(
         (feature) => String(feature?.properties?.DISTRICT ?? "").trim() === selectedDistrict
@@ -180,12 +199,14 @@ export function KeralaMap() {
         const districtBounds = geoJSON(districtFeature).getBounds();
         if (districtBounds.isValid()) {
           setTargetBounds(districtBounds);
+          scrollMapPaneIntoView();
           return;
         }
       }
     }
 
     setTargetBounds(filteredLocationBounds ?? keralaBounds);
+    scrollMapPaneIntoView();
   };
 
   return (
@@ -234,7 +255,10 @@ export function KeralaMap() {
         </div>
       </div>
 
-      <div className="relative w-full max-w-6xl mx-auto h-[90vh] min-h-[800px] rounded-2xl overflow-hidden shadow-2xl border-4 border-muted">
+      <div
+        ref={mapPaneRef}
+        className="relative w-full max-w-6xl mx-auto h-[90vh] min-h-[800px] rounded-2xl overflow-hidden shadow-2xl border-4 border-muted"
+      >
         <MapContainer
           bounds={keralaBounds}
           boundsOptions={{ padding: [8, 8] }}
