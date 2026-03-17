@@ -1,3 +1,4 @@
+# rag_pipeline.py
 import json
 
 from .retriever import hybrid_search
@@ -136,14 +137,16 @@ def _build_reel_context(reels):
     for reel in reels:
         location_name = reel.location.name if reel.location else ""
         district = reel.location.district if reel.location else ""
+        posted_date = reel.posted_at.strftime('%Y-%m-%d') if reel.posted_at else "Unknown Date"
         context = f"""
 Location: {location_name}
 District: {district}
-Summary:
+Date Posted: {posted_date}
+Summary (As of {posted_date}):
 {reel.ai_summary or ""}
-Caption:
+Caption (As of {posted_date}):
 {reel.raw_caption or ""}
-Transcript:
+Transcript (As of {posted_date}):
 {reel.transcript_text or ""}
 """
         parts.append(context.strip())
@@ -264,6 +267,13 @@ def run_rag(query, history=None):
         if len(context_reels) >= 8:
             break
 
+    # NEW: Sort the final context reels strictly by date (newest first)
+    # This prioritizes latest data when building the context payload for LLM
+    context_reels.sort(
+        key=lambda x: x.posted_at.timestamp() if x.posted_at else 0, 
+        reverse=True
+    )
+
     reel_context = _build_reel_context(context_reels[:8])
     location_context = _build_location_context(relevant_locations[:8])
     answer_style = _infer_answer_style(query)
@@ -273,8 +283,10 @@ def run_rag(query, history=None):
 
     Priority:
     1) Use ReelScout database context first, especially Known Facts and General Info.
-    2) If the user's location is not in the database, you MAY answer with concise general travel knowledge.
-    3) When using knowledge outside the ReelScout database, clearly say it is "general knowledge".
+    2) CONFLICT RESOLUTION: If different reels or comments give conflicting information, ALWAYS prioritize the information with the most recent 'Date Posted' or timestamp.
+    3) Explicitly mention the recency of dynamic conditions if relevant (e.g., "As of March 2024...").
+    4) If the user's location is not in the database, you MAY answer with concise general travel knowledge.
+    5) When using knowledge outside the ReelScout database, clearly say it is "general knowledge".
 
     Response rules:
     - Keep answers practical and accurate.

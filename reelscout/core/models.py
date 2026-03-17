@@ -1,3 +1,4 @@
+# models.py
 from django.db import models
 from django.utils.text import slugify
 import os
@@ -49,14 +50,15 @@ class ScrapedReel(models.Model):
 
     # 2. MEDIA ASSETS (Stored locally to save money)
     video_file = models.FileField(upload_to='video/', null=True, blank=True)
-    # 👇 NEW: Essential for Whisper to access the audio
+    # 👇 Essential for Whisper to access the audio
     audio_file = models.FileField(upload_to='audio/', null=True, blank=True)
     thumbnail_url = models.URLField(max_length=1000, null=True, blank=True)
 
     # 3. TEXT & CONTEXT
     raw_caption = models.TextField(null=True, blank=True)
     transcript_text = models.TextField(null=True, blank=True)
-    comments_dump = models.JSONField(default=list, blank=True, null=True)
+    # Updated schema representation for accurate time tracking
+    comments_dump = models.JSONField(default=list, blank=True, null=True, help_text="Schema: [{'text': '...', 'likes': 0, 'date': '...'}]")
 
     # 4. METADATA
     author_handle = models.CharField(max_length=100, null=True, blank=True)
@@ -90,7 +92,7 @@ class ScrapedReel(models.Model):
     def __str__(self):
         return f"{self.short_code} ({self.author_handle})"
 
-# 👇 NEW MODEL: Stores the extracted frames for Gemini
+# Stores the extracted frames for Gemini
 class ReelFrame(models.Model):
     reel = models.ForeignKey(ScrapedReel, related_name='frames', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='frames/')

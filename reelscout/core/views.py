@@ -1,3 +1,4 @@
+# views.py
 import re
 from django.shortcuts import render, get_object_or_404
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -13,13 +14,22 @@ def home(request):
     return render(request, 'core/index.html')
 
 
-def _parse_ranked_comment(comment_text):
-    if not isinstance(comment_text, str):
-        return {"text": str(comment_text), "likes": 0, "age": "Unknown"}
+def _parse_ranked_comment(comment_data):
+    # Handle the newly formatted dictionary schema
+    if isinstance(comment_data, dict):
+        return {
+            "text": comment_data.get("text", ""),
+            "likes": comment_data.get("likes", 0),
+            "age": comment_data.get("date", "Unknown"),
+        }
+        
+    # Backwards compatibility: Handle legacy string formats
+    if not isinstance(comment_data, str):
+        return {"text": str(comment_data), "likes": 0, "age": "Unknown"}
 
-    match = re.match(r'^\[SCORE:\s*(\d+)\]\s*\(([^)]+)\)\s*(.*)$', comment_text.strip())
+    match = re.match(r'^\[SCORE:\s*(\d+)\]\s*\(([^)]+)\)\s*(.*)$', comment_data.strip())
     if not match:
-        return {"text": comment_text.strip(), "likes": 0, "age": "Unknown"}
+        return {"text": comment_data.strip(), "likes": 0, "age": "Unknown"}
 
     return {
         "likes": int(match.group(1)),
@@ -30,6 +40,7 @@ def _parse_ranked_comment(comment_text):
 
 def location_detail(request, slug):
     location = get_object_or_404(Location, slug=slug)
+    # The database query inherently handles date priority for rendering templates
     reels = location.reels.all().order_by('-posted_at')
     revisions = location.revisions.all().order_by('-created_at')
 
@@ -89,7 +100,6 @@ def search_reel(request):
 
 
 def clean_and_rank_comments(raw_list):
-
     if isinstance(raw_list, str):
         raw_list = raw_list.splitlines()
 
@@ -108,7 +118,6 @@ def clean_and_rank_comments(raw_list):
     pending_date = "Unknown"
 
     for item in raw_list:
-
         if item is None:
             continue
 
@@ -146,8 +155,13 @@ def clean_and_rank_comments(raw_list):
 
     cleaned_comments.sort(key=lambda x: x['likes'], reverse=True)
 
+    # Return as standard list of dictionaries
     return [
-        f"[SCORE: {c['likes']}] ({c['date']}) {c['text']}"
+        {
+            "text": c['text'],
+            "likes": c['likes'],
+            "date": c['date']
+        }
         for c in cleaned_comments
     ]
 
