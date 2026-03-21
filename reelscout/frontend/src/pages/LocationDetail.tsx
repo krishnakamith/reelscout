@@ -8,6 +8,7 @@ import CommunityPulse from "@/components/location/CommunityPulse";
 import FrameGallery from "@/components/location/FrameGallery";
 import VerifiedReelData from "@/components/location/VerifiedReelData";
 import ChatbotCTA from "@/components/location/ChatbotCTA";
+import { ChatbotSidebar } from "@/components/ChatbotSidebar";
 import { ArrowLeft, CircleDollarSign, Clock, Eye, Footprints, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -99,6 +100,7 @@ const LocationDetail = () => {
   const [galleryFrames, setGalleryFrames] = useState<
     Array<{ src: string; alt: string; reelShortCode?: string; timestamp?: number }>
   >([]);
+  const [chatOpenTrigger, setChatOpenTrigger] = useState(0);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -427,7 +429,8 @@ const LocationDetail = () => {
       />
       <CommunityPulse locationSlug={slug} initialEntries={communityEntries} />
       <FrameGallery frames={galleryFrames} />
-      <ChatbotCTA />
+      <ChatbotCTA onOpenChatbot={() => setChatOpenTrigger((prev) => prev + 1)} />
+      <ChatbotSidebar externalOpenTrigger={chatOpenTrigger} showLauncher={false} />
     </main>
   );
 };

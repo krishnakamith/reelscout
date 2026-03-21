@@ -33,11 +33,13 @@ const initialMessages: Message[] = [
 
 interface ChatbotSidebarProps {
   externalOpenTrigger?: number;
+  showLauncher?: boolean;
   onLocationsDetected?: (locations: ReelResult[]) => void;
 }
 
 export function ChatbotSidebar({
   externalOpenTrigger,
+  showLauncher = true,
   onLocationsDetected
 }: ChatbotSidebarProps) {
 
@@ -202,6 +204,10 @@ const chatHistory = recentMessages.map(m => `${m.sender === "user" ? "User" : "R
 
   // --- RENDER FLOATING BUTTON IF CLOSED ---
   if (!isOpen) {
+    if (!showLauncher) {
+      return null;
+    }
+
     return (
       <Button
         onClick={() => setIsOpen(true)}
