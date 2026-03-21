@@ -227,10 +227,10 @@ const chatHistory = recentMessages.map(m => `${m.sender === "user" ? "User" : "R
   // --- RENDER CHAT INTERFACE ---
   return (
     <div
-      className={`fixed right-0 z-50 flex flex-col glass border-l border-border transition-all duration-300 ease-in-out shadow-2xl ${
+      className={`fixed z-50 flex flex-col glass border-border transition-all duration-300 ease-in-out shadow-2xl ${
         isMaximized
-          ? "top-0 bottom-0 w-full sm:w-[450px]"
-          : "bottom-6 sm:right-6 w-full sm:w-[400px] h-[80vh] sm:h-[600px] sm:rounded-2xl sm:border"
+          ? "top-0 bottom-0 left-0 right-0 sm:top-4 sm:bottom-4 sm:right-6 sm:left-auto sm:w-[720px] md:w-[860px] lg:w-[980px] sm:rounded-2xl sm:border"
+          : "right-0 bottom-6 w-full sm:right-6 sm:w-[400px] h-[80vh] sm:h-[600px] border-l sm:rounded-2xl sm:border"
       }`}
     >
       {/* Header */}
