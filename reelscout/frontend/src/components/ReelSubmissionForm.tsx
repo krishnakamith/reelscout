@@ -338,7 +338,7 @@ export function ReelSubmissionForm() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-12 max-w-2xl">
+      <main className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="text-center mb-10">
           <h1 className="font-display text-4xl md:text-5xl font-bold text-foreground mb-4">
             Contribute a <span className="text-gradient-hero">Reel</span>
@@ -348,9 +348,9 @@ export function ReelSubmissionForm() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-8 text-base">
           <div className="space-y-2">
-            <Label htmlFor="reelUrl" className="flex items-center gap-2 text-foreground">
+            <Label htmlFor="reelUrl" className="flex items-center gap-2 text-base text-foreground">
               <Link2 className="h-4 w-4 text-secondary" />
               Reel URL *
             </Label>
@@ -361,27 +361,37 @@ export function ReelSubmissionForm() {
               value={formData.reelUrl}
               onChange={handleChange}
               required
-              className="bg-card border-border focus-visible:ring-primary"
+              className="h-12 text-base bg-card border-border focus-visible:ring-primary"
             />
           </div>
 
           <div className="space-y-2">
             <div className="space-y-3 rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-foreground">Comment Scraper Script</p>
+                <p className="text-base font-medium text-foreground">Comment Scraper Script</p>
                 <Button type="button" variant="outline" onClick={copyScriptToClipboard}>
                   Copy Script
                 </Button>
               </div>
-              <Textarea
-                value={COMMENT_SCRAPER_SCRIPT}
-                readOnly
-                rows={12}
-                className="bg-background border-border font-mono text-xs"
-              />
-            </div>
+              <div className="rounded-lg border border-border bg-background/70 p-3">
+                <p className="text-sm font-medium text-foreground mb-2">How to get comments</p>
+                <ol className="list-decimal pl-4 space-y-1 text-sm text-muted-foreground">
+                  <li>Open the reel in Instagram web on desktop.</li>
+                  <li>Open the comments popup for that reel.</li>
+                  <li>Press <span className="font-mono text-foreground">Ctrl + Shift + I</span>, go to Console, paste the copied script, and press Enter.</li>
+                  <li>In the popup, click <span className="font-mono text-foreground">CLICK HERE TO COPY</span>.</li>
+                  <li>Paste the copied output in the <span className="font-medium text-foreground">Paste Comments</span> field below.</li>
+                </ol>
+              </div>
+                <Textarea
+                  value={COMMENT_SCRAPER_SCRIPT}
+                  readOnly
+                  rows={12}
+                  className="bg-background border-border font-mono text-sm"
+                />
+              </div>
 
-            <Label htmlFor="commentsText" className="flex items-center gap-2 text-foreground">
+            <Label htmlFor="commentsText" className="flex items-center gap-2 text-base text-foreground">
               <MessageSquareText className="h-4 w-4 text-secondary" />
               Paste Comments
             </Label>
@@ -392,7 +402,7 @@ export function ReelSubmissionForm() {
               onChange={handleChange}
               required
               rows={8}
-              className="bg-card border-border focus-visible:ring-primary resize-none"
+              className="text-base bg-card border-border focus-visible:ring-primary resize-none"
             />
           </div>
 
