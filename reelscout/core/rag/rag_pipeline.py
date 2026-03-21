@@ -1,3 +1,4 @@
+# rag_pipeline.py
 import json
 
 from .retriever import hybrid_search
@@ -136,27 +137,40 @@ def _build_reel_context(reels):
     for reel in reels:
         location_name = reel.location.name if reel.location else ""
         district = reel.location.district if reel.location else ""
+        posted_date = reel.posted_at.strftime('%Y-%m-%d') if reel.posted_at else "Unknown Date"
         context = f"""
 Location: {location_name}
 District: {district}
-Summary:
+Date Posted: {posted_date}
+Summary (As of {posted_date}):
 {reel.ai_summary or ""}
-Caption:
+Caption (As of {posted_date}):
 {reel.raw_caption or ""}
-Transcript:
+Transcript (As of {posted_date}):
 {reel.transcript_text or ""}
 """
         parts.append(context.strip())
     return "\n\n".join(parts)
 
 
+import google.generativeai as genai
+
 def _safe_generate(gemini, prompt):
     if not hasattr(gemini, "model"):
         return None
     try:
-        response = gemini.model.generate_content(prompt)
+        # Force strict, factual answers by lowering temperature and top_p
+        response = gemini.model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.1, 
+                top_p=0.8,
+                top_k=40
+            )
+        )
         return response.text.strip() if response and response.text else None
-    except Exception:
+    except Exception as e:
+        print(f"Chatbot generation error: {e}") 
         return None
 
 
@@ -264,52 +278,57 @@ def run_rag(query, history=None):
         if len(context_reels) >= 8:
             break
 
-    reel_context = _build_reel_context(context_reels[:8])
-    location_context = _build_location_context(relevant_locations[:8])
+    # NEW: Sort the final context reels strictly by date (newest first)
+    # This prioritizes latest data when building the context payload for LLM
+    context_reels.sort(
+        key=lambda x: x.posted_at.timestamp() if x.posted_at else 0, 
+        reverse=True
+    )
+
+    reel_context = _build_reel_context(context_reels[:3])
+    location_context = _build_location_context(relevant_locations[:3])
     answer_style = _infer_answer_style(query)
 
     prompt = f"""
-    You are ReelScout, an AI travel discovery assistant.
+    You are ReelScout, an expert, native travel guide for Kerala, India. You speak in a helpful, highly specific, and engaging tone.
 
-    Priority:
-    1) Use ReelScout database context first, especially Known Facts and General Info.
-    2) If the user's location is not in the database, you MAY answer with concise general travel knowledge.
-    3) When using knowledge outside the ReelScout database, clearly say it is "general knowledge".
+    CRITICAL RULES:
+    1. NEVER sound like a robot. Do not use phrases like "Based on the database," "According to the context," or "As an AI." State the facts naturally as if you personally know the place.
+    2. Answer ONLY what the user asked. If they ask for the entry fee, just give the fee. Do not dump the entire history or general info of the location unless asked.
+    3. NO HALLUCINATIONS. Base your answers strictly on the ReelScout Data Context below. Do not invent details, trails, or facts.
+    4. GENERAL KNOWLEDGE FALLBACK: If the answer is completely absent from the ReelScout context, you may use concise general travel knowledge, but you MUST briefly indicate this (e.g., "I don't have recent Reel data on that, but generally...").
 
-    Response rules:
-    - Keep answers practical and accurate.
-    - Prefer locations available in ReelScout context for recommendations.
-    - Do not invent ReelScout-specific details that are absent from context.
-    - Answer style mode: {answer_style}
-    - IMPORTANT: Answer ONLY what the user asked. Do not dump full database details.
-    - For "specific" mode: maximum 2 short sentences and only the requested point.
-    - For "list" mode: concise list-style answer with only relevant items.
-    - For "detailed" mode: provide a fuller response, but still stay on topic.
-    - If user asks one field (example: timings, fee, location, how to reach), return only that field.
-    - Follow-up questions should be answered narrowly based on the follow-up.
+    TIME & CONFLICT RESOLUTION:
+    - If different reels or comments give conflicting information (e.g., different entry fees or water levels), ALWAYS trust the data with the newest 'Date Posted'.
+    - If a condition is dynamic (weather, water levels, crowds), explicitly mention the recency (e.g., "As of March 2024, the water level was...").
 
-    Conversation history:
+    ANSWER STYLE DIRECTIVES ({answer_style} mode):
+    - "specific": Maximum 2 short sentences. Give only the exact requested point.
+    - "list": Provide a concise, bulleted-style response with only the most relevant items.
+    - "detailed": Provide a fuller, comprehensive response, but stay strictly on the user's topic.
+
+    Conversation History:
     {conversation_context}
 
-    ReelScout Location Context:
+    ReelScout Data Context:
+    [LOCATIONS]
     {location_context or "No location context available."}
 
-    ReelScout Reel Context:
+    [REELS]
     {reel_context or "No reel context available."}
 
-    Return your response in STRICT VALID JSON ONLY.
+    Return your response in STRICT VALID JSON ONLY. Do not wrap it in markdown code blocks.
 
     Format:
-
     {{
-    "answer": "text answer for user",
-    "recommended_locations": [
-    {{
-        "name": "location name",
-        "district": "district name",
-        "reason": "why it is relevant"
-    }}
-    ]
+      "answer": "Your conversational, highly specific text answer goes here.",
+      "recommended_locations": [
+        {{
+            "name": "Location Name",
+            "district": "District Name",
+            "reason": "Exactly why this fits the user's prompt based on the context."
+        }}
+      ]
     }}
     """
 

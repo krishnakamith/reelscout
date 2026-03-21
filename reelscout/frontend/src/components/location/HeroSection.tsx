@@ -9,6 +9,7 @@ import heroHeritageImage from "@/assets/hero-heritage.jpg";
 import heroHillsImage from "@/assets/hero-hills.jpg";
 import heroViewpointImage from "@/assets/hero-viewpoint.jpg";
 import heroWaterbodyImage from "@/assets/hero-waterbody.jpg";
+import heroRiverImage from "@/assets/hero-river.jpg";
 import heroForestImage from "@/assets/hero-forest.jpg";
 
 interface HeroSectionProps {
@@ -38,7 +39,8 @@ function pickHeroImage(category?: string, locationName?: string) {
   if (categoryText.includes("hill station") || categoryCompact.includes("hillstation")) return heroViewpointImage;
   if (categoryText.includes("viewpoint") || categoryText.includes("view point")) return heroViewpointImage;
   if (categoryText.includes("hill") || categoryText.includes("mountain")) return heroHillsImage;
-  if (categoryText.includes("lake") || categoryText.includes("dam") || categoryText.includes("river") || categoryText.includes("water")) return heroWaterbodyImage;
+  if (categoryText.includes("river") || categoryCompact.includes("river")) return heroRiverImage;
+  if (categoryText.includes("lake") || categoryText.includes("dam") || categoryText.includes("water")) return heroWaterbodyImage;
   if (categoryText.includes("park")) return heroDefaultImage;
 
   // 2) Fallback to location-name keyword mapping.
@@ -58,7 +60,8 @@ function pickHeroImage(category?: string, locationName?: string) {
   if (locationText.includes("hill station") || locationCompact.includes("hillstation")) return heroViewpointImage;
   if (locationText.includes("viewpoint") || locationText.includes("view point")) return heroViewpointImage;
   if (locationText.includes("hill") || locationText.includes("mountain")) return heroHillsImage;
-  if (locationText.includes("lake") || locationText.includes("dam") || locationText.includes("river") || locationText.includes("water")) return heroWaterbodyImage;
+  if (locationText.includes("river") || locationCompact.includes("river")) return heroRiverImage;
+  if (locationText.includes("lake") || locationText.includes("dam") || locationText.includes("water")) return heroWaterbodyImage;
   if (locationText.includes("park")) return heroDefaultImage;
 
   return heroForestImage;

@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 // Fix: Removed inner backticks and ${} template literals so it doesn't break React compilation
-const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV8() {
+const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV9() {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const TARGET_COMMENTS = 250;
-  const globalComments = new Set();
+  const globalComments = [];
+  const seen = new Set();
   const knownUsernames = new Set(); 
 
   const m = window.location.pathname.match(/\/reels?\/([^\/?#]+)/i);
@@ -27,124 +28,132 @@ const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV
 
   if (!commentsRoot) return alert("Could not find scrollable comments area.");
 
-  console.log("🚁 ReelScout Scraper V8: Extracting...");
+  console.log("🚁 ReelScout Scraper V9 FIXED: Extracting with timestamps...");
 
   for (let i = 0; i < 50; i++) {
-    // 1. Expand all "more" text
+    // Expand buttons
     const expanders = Array.from(commentsRoot.querySelectorAll('span, div[role="button"]'))
-        .filter(el => el.innerText && /^(more|view replies)$/i.test(el.innerText.trim()));
+      .filter(el => el.innerText && /^(more|view replies)$/i.test(el.innerText.trim()));
     expanders.forEach(btn => { try { btn.click(); } catch(e){} });
 
     await sleep(600);
 
-    // 2. Build Username Blacklist
+    // Username blacklist
     const profileLinks = commentsRoot.querySelectorAll('a[href]');
     profileLinks.forEach(link => {
-        const href = link.getAttribute('href');
-        if (href && href.startsWith('/') && href.split('/').length === 3) {
-            const username = href.replaceAll('/', '').trim().toLowerCase();
-            if (username && username !== "p" && username !== "reels") knownUsernames.add(username);
-            if (link.innerText) knownUsernames.add(link.innerText.trim().toLowerCase());
-        }
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('/') && href.split('/').length === 3) {
+        const username = href.replaceAll('/', '').trim().toLowerCase();
+        if (username && username !== "p" && username !== "reels") knownUsernames.add(username);
+        if (link.innerText) knownUsernames.add(link.innerText.trim().toLowerCase());
+      }
     });
 
-    // 3. Harvest and Filter
+    // Extract comments + timestamps
     const commentNodes = commentsRoot.querySelectorAll('span[dir="auto"]');
-    commentNodes.forEach(node => {
-        const text = node.innerText.trim();
-        const lowerText = text.toLowerCase();
-        
-        const isUI = /^(reply|hide replies|see translation|translated|like|likes|follow|following)$/i.test(text) || /^view all \d+ replies$/i.test(text);
-        const isNumberOrTime = /^\d+[smhdw]$/i.test(text) || /^\d+w$/i.test(text) || /^\d+$/.test(text);
-        const isLikeCount = /^\d+\s+likes?$/i.test(text);
-        const isTagOnly = /^@[a-z0-9_.]+$/i.test(text);
-        const isUsername = knownUsernames.has(lowerText);
 
-        if (text && text.length > 1 && !isUI && !isNumberOrTime && !isLikeCount && !isTagOnly && !isUsername) {
-            globalComments.add(text);
+    commentNodes.forEach(node => {
+      const text = node.innerText.trim();
+      const lowerText = text.toLowerCase();
+
+      const isUI = /^(reply|hide replies|see translation|translated|like|likes|follow|following)$/i.test(text) || /^view all \d+ replies$/i.test(text);
+      const isNumberOrTime = /^\d+[smhdw]$/i.test(text) || /^\d+$/.test(text);
+      const isLikeCount = /^\d+\s+likes?$/i.test(text);
+      const isTagOnly = /^@[a-z0-9_.]+$/i.test(text);
+      const isUsername = knownUsernames.has(lowerText);
+
+      if (!text || text.length <= 1 || isUI || isNumberOrTime || isLikeCount || isTagOnly || isUsername) return;
+
+      // 🔥 FIXED PARENT DETECTION
+      let parent = node.closest('li');
+
+      // fallback if no <li>
+      if (!parent) {
+        parent = node;
+        for (let i = 0; i < 4; i++) {
+          if (parent.parentElement) parent = parent.parentElement;
         }
+      }
+
+      // ⏱ Extract timestamp (FIXED)
+      let timestamp = null;
+
+      // 1. Try exact <time> inside comment block
+      const timeEl = parent.querySelector('time');
+      if (timeEl) {
+        timestamp = timeEl.getAttribute('datetime') || timeEl.innerText;
+      }
+
+      // 2. Expand search to nearby container (important fix)
+      if (!timestamp) {
+        let container = parent;
+        for (let i = 0; i < 2; i++) {
+          if (container.parentElement) container = container.parentElement;
+        }
+
+        const timeEl2 = container.querySelector('time');
+        if (timeEl2) {
+          timestamp = timeEl2.getAttribute('datetime') || timeEl2.innerText;
+        }
+      }
+
+      // 3. Fallback: "2h", "3d"
+      if (!timestamp) {
+        const possibleTimes = Array.from(parent.querySelectorAll('a, span'))
+          .map(el => el.innerText.trim())
+          .find(t => /^\d+[smhdw]$/i.test(t));
+
+        if (possibleTimes) timestamp = possibleTimes;
+      }
+
+      const key = text + "|" + timestamp;
+      if (!seen.has(key)) {
+        seen.add(key);
+        globalComments.push({
+          comment: text,
+          timestamp: timestamp || "unknown"
+        });
+      }
     });
 
-    // 4. Scroll Down
+    // Scroll
     const previousHeight = commentsRoot.scrollHeight;
     commentsRoot.scrollTop = commentsRoot.scrollHeight;
-    console.log("Scroll Pass " + (i+1) + ": Logged " + globalComments.size + " comments...");
 
-    if (globalComments.size >= TARGET_COMMENTS) break;
+    console.log("Scroll \${i+1}: \${globalComments.length} comments");
+
+    if (globalComments.length >= TARGET_COMMENTS) break;
 
     await sleep(1500);
     if (commentsRoot.scrollHeight === previousHeight && i > 5) break;
   }
 
-  // 5. 100% RELIABLE OUTPUT UI
-  const allCommentsArray = Array.from(globalComments);
-  const payload = JSON.stringify(allCommentsArray, null, 2);
+  // Output
+  const payload = JSON.stringify(globalComments, null, 2);
 
-  // Create a full-screen overlay to force a physical user click
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:999999;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;font-family:sans-serif;";
   
   const title = document.createElement("h2");
-  title.innerText = "✅ Scraped " + allCommentsArray.length + " Comments!";
+  title.innerText = "✅ Scraped " + globalComments.length + " Comments with timestamps!";
   title.style.marginBottom = "30px";
 
   const copyBtn = document.createElement("button");
   copyBtn.innerText = "📋 CLICK HERE TO COPY";
-  copyBtn.style.cssText = "padding:20px 40px;font-size:24px;background:#0095f6;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:20px;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-weight:bold;";
-  
-  const downloadBtn = document.createElement("button");
-  downloadBtn.innerText = "💾 OR DOWNLOAD AS FILE";
-  downloadBtn.style.cssText = "padding:15px 30px;font-size:18px;background:#28a745;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:30px;";
-
-  const closeBtn = document.createElement("button");
-  closeBtn.innerText = "Close & Resume Instagram";
-  closeBtn.style.cssText = "padding: 10px 20px; background: transparent; color: #ccc; border: 1px solid #ccc; border-radius: 5px; cursor: pointer;";
+  copyBtn.style.cssText = "padding:20px 40px;font-size:24px;background:#0095f6;color:white;border:none;border-radius:8px;cursor:pointer;margin-bottom:20px;";
 
   overlay.appendChild(title);
   overlay.appendChild(copyBtn);
-  overlay.appendChild(downloadBtn);
-  overlay.appendChild(closeBtn);
   document.body.appendChild(overlay);
 
-  // Because you physically click this button, the browser ALLOWS the copy.
   copyBtn.addEventListener("click", async () => {
-      try {
-          if (navigator.clipboard && window.isSecureContext) {
-              await navigator.clipboard.writeText(payload);
-          } else {
-              const ta = document.createElement("textarea");
-              ta.value = payload;
-              ta.style.position = "fixed"; ta.style.opacity = "0";
-              document.body.appendChild(ta);
-              ta.select();
-              document.execCommand("copy");
-              document.body.removeChild(ta);
-          }
-          copyBtn.innerText = "✅ COPIED TO CLIPBOARD!";
-          copyBtn.style.background = "#28a745";
-          setTimeout(() => document.body.removeChild(overlay), 2000);
-      } catch (err) {
-          alert("Clipboard blocked! Please use the Download button instead.");
-      }
+    try {
+      await navigator.clipboard.writeText(payload);
+      copyBtn.innerText = "✅ COPIED!";
+    } catch {
+      alert("Clipboard blocked!");
+    }
   });
-
-  // Ultimate backup: Download as a text file
-  downloadBtn.addEventListener("click", () => {
-      const blob = new Blob([payload], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'instagram_comments.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      downloadBtn.innerText = "✅ FILE DOWNLOADED!";
-      setTimeout(() => document.body.removeChild(overlay), 2000);
-  });
-
-  closeBtn.addEventListener("click", () => document.body.removeChild(overlay));
 
 })();`;
 
