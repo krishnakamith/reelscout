@@ -179,7 +179,7 @@ def _safe_generate(prompt, system_instruction=None):
         # Call the blazing fast Llama 3 70B model
         chat_completion = client.chat.completions.create(
             messages=messages,
-            model="llama-3.3-70b-versatile", 
+            model="meta-llama/llama-4-scout-17b-16e-instruct", 
             temperature=0.3, # Kept slightly lower for factual RAG answers
             max_tokens=1024,
             response_format={"type": "json_object"} # Forces strictly valid JSON

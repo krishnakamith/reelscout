@@ -48,7 +48,10 @@ export function ChatbotSidebar({
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // --- NEW: LOCATION STATE ---
+  // --- NEW: FOCUSED LOCATION STATE ---
+  const [selectedLocation, setSelectedLocation] = useState<ReelResult | null>(null);
+
+  // --- LOCATION STATE ---
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "granted" | "denied">("idle");
 
@@ -64,7 +67,7 @@ export function ChatbotSidebar({
     }
   }, [messages, loading]);
 
-  // --- NEW: PROMISE-BASED GEOLOCATION HELPER ---
+  // --- PROMISE-BASED GEOLOCATION HELPER ---
   const getBrowserLocation = (): Promise<{ lat: number; lng: number }> => {
     return new Promise((resolve, reject) => {
       if (!("geolocation" in navigator)) {
@@ -87,11 +90,19 @@ export function ChatbotSidebar({
     });
   };
 
+  // --- NEW: HANDLE CHAT CLOSE AND RESET ---
+  const handleCloseChat = () => {
+    setIsOpen(false);
+    setMessages(initialMessages);
+    setSelectedLocation(null);
+    setInputValue("");
+  };
+
   const handleSendMessage = async () => {
     const userMessage = inputValue.trim();
     if (!userMessage || loading) return;
 
-    // 1. Add User Message to UI instantly
+    // 1. Add User Message to UI instantly (show clean message to user)
     const newUserMsg: Message = {
       id: Date.now().toString(),
       content: userMessage,
@@ -106,34 +117,35 @@ export function ChatbotSidebar({
     let currentLat = userLocation?.lat;
     let currentLng = userLocation?.lng;
 
-    // 2. THE INTERCEPT: Check for spatial intent ("near me", "within 20 km", etc.)
+    // 2. THE INTERCEPT: Check for spatial intent
     const spatialIntent = /(near me|nearby|close by|around me|within \d+\s?km)/i.test(userMessage);
 
     if (spatialIntent && !currentLat) {
       try {
         setLocationStatus("loading");
-        
-        // This pauses execution and triggers the browser's permission popup
         const coords = await getBrowserLocation(); 
-        
         currentLat = coords.lat;
         currentLng = coords.lng;
-        
-        // Save it for future messages in this session
         setUserLocation(coords);
         setLocationStatus("granted");
-        
       } catch (error) {
         console.warn("Location denied or timed out:", error);
         setLocationStatus("denied");
-        // We will proceed anyway; the backend will just ignore distance sorting
       }
     }
 
-    // 3. Prepare Chat History (formatting it for the backend RAG pipeline)
-    const chatHistory = messages.map(m => `${m.sender === "user" ? "User" : "ReelScout"}: ${m.content}`);
+    // 3. Prepare Chat History
+    // Only keep the last 4 messages for context
+  const recentMessages = messages.slice(-4); 
+const chatHistory = recentMessages.map(m => `${m.sender === "user" ? "User" : "ReelScout"}: ${m.content}`);
 
-    // 4. Send the payload to your Django API
+    // 4. Inject Location Context for the Backend AI 
+    // This string goes to the backend, but isn't rendered in the chat UI
+    const messageToSend = selectedLocation 
+      ? `[Context: I am asking about the location "${selectedLocation.location}"]\n${userMessage}` 
+      : userMessage;
+
+    // 5. Send the payload to your Django API
     try {
       const response = await fetch('/api/chat/', {
         method: 'POST',
@@ -141,10 +153,11 @@ export function ChatbotSidebar({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: userMessage,
+          message: messageToSend, 
           history: chatHistory,
-          lat: currentLat, // <-- Inject Latitude
-          lng: currentLng, // <-- Inject Longitude
+          lat: currentLat, 
+          lng: currentLng,
+          focused_location: selectedLocation?.location // Optional addition for your backend parsing
         }),
       });
 
@@ -160,7 +173,6 @@ export function ChatbotSidebar({
 
       setMessages((prev) => [...prev, newBotMsg]);
 
-      // If the backend found locations and the parent component wants to know (e.g., to update the map)
       if (data.locations && data.locations.length > 0 && onLocationsDetected) {
          onLocationsDetected(data.locations);
       }
@@ -237,8 +249,8 @@ export function ChatbotSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 hover:text-foreground hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => setIsOpen(false)}
+            className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+            onClick={handleCloseChat}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -283,13 +295,18 @@ export function ChatbotSidebar({
                     <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                   </div>
 
-                  {/* Render Reel Results if the Bot returned any */}
+                  {/* Render Reel Results */}
                   {msg.results && msg.results.length > 0 && (
                     <div className="flex flex-col gap-2 mt-1">
                       {msg.results.map((place, idx) => (
                         <div
                           key={idx}
-                          className="bg-card border border-border rounded-lg p-3 text-sm hover:border-primary/50 transition-colors"
+                          onClick={() => setSelectedLocation(place)}
+                          className={`bg-card border rounded-lg p-3 text-sm cursor-pointer transition-all shadow-sm hover:shadow-md ${
+                            selectedLocation?.location === place.location
+                              ? "border-primary ring-1 ring-primary/50"
+                              : "border-border hover:border-primary/50"
+                          }`}
                         >
                           <div className="font-medium text-foreground">
                             {place.location}
@@ -300,6 +317,9 @@ export function ChatbotSidebar({
                           <p className="mt-1 text-xs line-clamp-2 text-muted-foreground">
                             {place.summary}
                           </p>
+                          <div className="mt-2 text-[10px] text-primary font-medium flex items-center uppercase tracking-wider">
+                            {selectedLocation?.location === place.location ? "Currently Asking About This" : "Click to ask about this place"}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -329,15 +349,32 @@ export function ChatbotSidebar({
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="p-4 border-t border-border bg-card sm:rounded-b-2xl">
-          <div className="flex items-center gap-2 relative">
-            
-            {/* --- UI INDICATOR FOR LOCATION --- */}
-            <div className="absolute left-3 flex items-center justify-center text-muted-foreground">
-                {locationStatus === "idle" && <MapPin className="h-4 w-4 opacity-40" title="Location ready when needed" />}
+        <div className="flex flex-col bg-card sm:rounded-b-2xl border-t border-border">
+          
+          {/* Active Location Indicator */}
+          {selectedLocation && (
+            <div className="px-4 py-2 bg-primary/10 border-b border-primary/20 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-primary">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="font-medium">Focusing on: {selectedLocation.location}</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-5 w-5 text-primary hover:bg-primary/20 hover:text-primary rounded-full"
+                onClick={() => setSelectedLocation(null)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
+          <div className="p-4 flex items-center gap-2 relative">
+            <div className="absolute left-7 flex items-center justify-center text-muted-foreground">
+                {locationStatus === "idle" && <div title="Location ready when needed"><MapPin className="h-4 w-4 opacity-40" /></div>}
                 {locationStatus === "loading" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                {locationStatus === "granted" && <MapPin className="h-4 w-4 text-green-500" title="Location shared for nearby results" />}
-                {locationStatus === "denied" && <MapPinOff className="h-4 w-4 text-destructive opacity-70" title="Location access denied" />}
+                {locationStatus === "granted" && <div title="Location shared for nearby results"><MapPin className="h-4 w-4 text-green-500" /></div>}
+                {locationStatus === "denied" && <div title="Location access denied"><MapPinOff className="h-4 w-4 text-destructive opacity-70" /></div>}
             </div>
 
             <Input
@@ -345,7 +382,7 @@ export function ChatbotSidebar({
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyPress}
               disabled={loading}
-              placeholder="Ask for nearby places, hidden gems..."
+              placeholder={selectedLocation ? `Ask about ${selectedLocation.location}...` : "Ask for nearby places, hidden gems..."}
               className="flex-1 bg-background border-border focus-visible:ring-1 focus-visible:ring-primary pl-10 pr-4 py-6 rounded-xl"
             />
 
