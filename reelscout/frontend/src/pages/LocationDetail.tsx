@@ -1,5 +1,5 @@
 ﻿// reelscout/frontend/src/pages/LocationDetail.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import HeroSection from "@/components/location/HeroSection";
 import BentoInsights from "@/components/location/BentoInsights";
@@ -8,6 +8,7 @@ import CommunityPulse from "@/components/location/CommunityPulse";
 import FrameGallery from "@/components/location/FrameGallery";
 import VerifiedReelData from "@/components/location/VerifiedReelData";
 import ChatbotCTA from "@/components/location/ChatbotCTA";
+import { ChatbotSidebar } from "@/components/ChatbotSidebar";
 import { ArrowLeft, CircleDollarSign, Clock, Eye, Footprints, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -78,6 +79,12 @@ function getReelSourceId(reel: ReelItem, index: number) {
   return reel.short_code?.trim() || `reel-${index}`;
 }
 
+function parseCoordinate(value: string | null) {
+  if (value === null) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 const LocationDetail = () => {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -99,6 +106,23 @@ const LocationDetail = () => {
   const [galleryFrames, setGalleryFrames] = useState<
     Array<{ src: string; alt: string; reelShortCode?: string; timestamp?: number }>
   >([]);
+  const [chatOpenTrigger, setChatOpenTrigger] = useState(0);
+
+  const focusedLocation = useMemo(() => {
+    const name = locationName?.trim();
+    if (!name) return null;
+
+    const districtName = district?.trim() || undefined;
+    const lat = parseCoordinate(latitude);
+    const lng = parseCoordinate(longitude);
+
+    return {
+      location: name,
+      district: districtName,
+      lat,
+      lng,
+    };
+  }, [district, latitude, locationName, longitude]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -427,7 +451,12 @@ const LocationDetail = () => {
       />
       <CommunityPulse locationSlug={slug} initialEntries={communityEntries} />
       <FrameGallery frames={galleryFrames} />
-      <ChatbotCTA />
+      <ChatbotCTA onOpenChatbot={() => setChatOpenTrigger((prev) => prev + 1)} />
+      <ChatbotSidebar
+        externalOpenTrigger={chatOpenTrigger}
+        showLauncher={false}
+        initialFocusedLocation={focusedLocation}
+      />
     </main>
   );
 };

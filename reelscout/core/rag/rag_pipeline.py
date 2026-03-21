@@ -1,8 +1,9 @@
 # rag_pipeline.py
 import json
+import os
+from groq import Groq
 
 from .retriever import hybrid_search
-from core.gemini_service import GeminiService
 from core.models import Location
 
 
@@ -153,25 +154,42 @@ Transcript (As of {posted_date}):
     return "\n\n".join(parts)
 
 
-import google.generativeai as genai
+# Initialize the Groq client
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def _safe_generate(gemini, prompt):
-    if not hasattr(gemini, "model"):
-        return None
+def _safe_generate(prompt, system_instruction=None):
+    """
+    Safely calls the Groq API to generate a response.
+    """
     try:
-        # Force strict, factual answers by lowering temperature and top_p
-        response = gemini.model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.1, 
-                top_p=0.8,
-                top_k=40
-            )
+        messages = []
+        
+        # Inject the Local Expert persona and context as the system prompt
+        if system_instruction:
+            messages.append({
+                "role": "system", 
+                "content": system_instruction
+            })
+            
+        messages.append({
+            "role": "user", 
+            "content": prompt
+        })
+
+        # Call the blazing fast Llama 3 70B model
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model="meta-llama/llama-4-scout-17b-16e-instruct", 
+            temperature=0.3, # Kept slightly lower for factual RAG answers
+            max_tokens=1024,
+            response_format={"type": "json_object"} # Forces strictly valid JSON
         )
-        return response.text.strip() if response and response.text else None
+        
+        return chat_completion.choices[0].message.content
+
     except Exception as e:
-        print(f"Chatbot generation error: {e}") 
-        return None
+        print(f"⚠️ Groq API Error: {e}")
+        return None # Return None to trigger your fallback logic gracefully
 
 
 def _clean_json_block(text):
@@ -279,7 +297,6 @@ def run_rag(query, history=None):
             break
 
     # NEW: Sort the final context reels strictly by date (newest first)
-    # This prioritizes latest data when building the context payload for LLM
     context_reels.sort(
         key=lambda x: x.posted_at.timestamp() if x.posted_at else 0, 
         reverse=True
@@ -289,7 +306,8 @@ def run_rag(query, history=None):
     location_context = _build_location_context(relevant_locations[:3])
     answer_style = _infer_answer_style(query)
 
-    prompt = f"""
+    # Cleanly format the system instructions and data context
+    system_prompt = f"""
     You are ReelScout, an expert, native travel guide for Kerala, India. You speak in a helpful, highly specific, and engaging tone.
 
     CRITICAL RULES:
@@ -332,8 +350,8 @@ def run_rag(query, history=None):
     }}
     """
 
-    gemini = GeminiService()
-    text = _safe_generate(gemini, prompt)
+    # Pass the query as the user prompt, and the giant instruction block as the system prompt
+    text = _safe_generate(prompt=query, system_instruction=system_prompt)
 
     if not text:
         if relevant_locations:
@@ -364,12 +382,11 @@ def run_rag(query, history=None):
 
     text = _clean_json_block(text)
 
-    # Try parsing Gemini JSON
+    # Try parsing Groq JSON
     try:
         data = json.loads(text)
 
     except Exception:
-
         data = {
             "answer": text,
             "recommended_locations": []
