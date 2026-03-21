@@ -32,7 +32,7 @@ const ChatbotCTA = ({ onOpenChatbot }: ChatbotCTAProps) => {
               className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 text-sm font-semibold rounded-full"
             >
               <MessageCircle className="w-4 h-4 mr-2" />
-              Chat with AI
+              Ask Chatbot
             </Button>
           </div>
         </div>

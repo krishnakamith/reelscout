@@ -34,12 +34,14 @@ const initialMessages: Message[] = [
 interface ChatbotSidebarProps {
   externalOpenTrigger?: number;
   showLauncher?: boolean;
+  initialFocusedLocation?: ReelResult | null;
   onLocationsDetected?: (locations: ReelResult[]) => void;
 }
 
 export function ChatbotSidebar({
   externalOpenTrigger,
   showLauncher = true,
+  initialFocusedLocation,
   onLocationsDetected
 }: ChatbotSidebarProps) {
 
@@ -60,8 +62,11 @@ export function ChatbotSidebar({
   useEffect(() => {
     if (externalOpenTrigger && externalOpenTrigger > 0) {
       setIsOpen(true);
+      if (initialFocusedLocation?.location?.trim()) {
+        setSelectedLocation(initialFocusedLocation);
+      }
     }
-  }, [externalOpenTrigger]);
+  }, [externalOpenTrigger, initialFocusedLocation]);
 
   useEffect(() => {
     if (scrollRef.current) {
