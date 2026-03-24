@@ -23,6 +23,7 @@ interface LocationDetailResponse {
   category?: string;
   district?: string;
   specific_area?: string;
+  most_likely_specific_area?: string;
   alternate_names?: string[];
   general_info?: Record<string, string>;
   known_facts?: Record<string, string>;
@@ -168,7 +169,7 @@ const LocationDetail = () => {
           setCategory(data.category.trim());
         }
 
-        const area = data?.specific_area?.trim();
+        const area = data?.most_likely_specific_area?.trim() || data?.specific_area?.trim();
         const districtName = data?.district?.trim();
 
         if (districtName) {
