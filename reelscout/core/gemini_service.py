@@ -21,6 +21,8 @@ class GeminiService:
             text = str(raw_comment.get("text", "")).strip()
         else:
             text = str(raw_comment or "").strip()
+        if text.lower() == "[object object]":
+            return ""
 
         # Remove ranking metadata like: [SCORE: 12] (2d)
         text = re.sub(r'^\[SCORE:\s*\d+\]\s*\([^)]+\)\s*', "", text, flags=re.IGNORECASE)
@@ -139,6 +141,11 @@ class GeminiService:
         TASK A: Transcribe the spoken Malayalam exactly. If NO speech, write "Music only".
         
         TASK B: Identify the location and provide its geographic latitude and longitude coordinates.
+        LOCATION EVIDENCE PRIORITY (STRICT):
+        1) Caption text + spoken audio transcript from this reel.
+        2) Visual frames.
+        3) Comments only as secondary support when (1) and (2) are ambiguous.
+        If comments conflict with a clear caption/transcript mention, trust caption/transcript.
         
         TASK B1: ALIAS DETECTION. Deeply analyze the caption, audio, and comments. Look for locals correcting the creator, common misspellings, alternative regional names, or broader area names for this exact spot. Return them as a list of strings in "alternate_names".
 

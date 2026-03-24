@@ -48,6 +48,18 @@ def _normalize_location_name(value):
     tokens = [token_map.get(token, token) for token in text.split()]
     return " ".join(tokens)
 
+def _normalize_geo_label(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+def _clean_text_value(value):
+    text = str(value or "").strip()
+    return text or None
+
 def _clean_aliases(aliases, canonical_name=None):
     names = aliases if isinstance(aliases, list) else []
     canonical_norm = _normalize_location_name(canonical_name)
@@ -178,6 +190,169 @@ def _sanitize_selected_frame_timestamps(raw_value):
 
     return unique[:4]
 
+def _extract_comment_text(raw_comment):
+    if isinstance(raw_comment, dict):
+        text = str(raw_comment.get("text", "")).strip()
+    else:
+        text = str(raw_comment or "").strip()
+    if text.lower() == "[object object]":
+        return ""
+    return text
+
+def _iter_comment_texts(comments_dump):
+    if not isinstance(comments_dump, list):
+        return
+    for raw_comment in comments_dump:
+        text = _extract_comment_text(raw_comment)
+        if text:
+            yield text
+
+def _add_vote(scores, labels, value, weight=1):
+    label = _clean_text_value(value)
+    if not label:
+        return
+    normalized = _normalize_geo_label(label)
+    if not normalized:
+        return
+    scores[normalized] = scores.get(normalized, 0) + weight
+    labels.setdefault(normalized, label)
+
+def _has_usable_comments(comments_dump):
+    if not isinstance(comments_dump, list):
+        return False
+    for _ in _iter_comment_texts(comments_dump):
+        return True
+    return False
+
+def _contains_geo_mention(text, candidate):
+    if not text or not candidate:
+        return False
+    return f" {candidate} " in f" {text} "
+
+def _extract_area_hints_from_names(names, canonical_location_name=None):
+    hints = []
+    seen = set()
+    canonical_norm = _normalize_geo_label(canonical_location_name)
+    strip_tokens = {
+        "temple", "church", "mosque", "fort", "waterfall", "falls", "lake",
+        "dam", "beach", "cave", "hill", "hills", "viewpoint", "view", "point",
+    }
+
+    for raw_name in names or []:
+        name = _clean_text_value(raw_name)
+        if not name:
+            continue
+
+        tokens = [token for token in _normalize_geo_label(name).split() if token not in strip_tokens]
+        if not tokens:
+            continue
+
+        candidate_norm = " ".join(tokens).strip()
+        if not candidate_norm:
+            continue
+        if canonical_norm and (
+            candidate_norm in canonical_norm
+            or canonical_norm in candidate_norm
+        ):
+            continue
+        if candidate_norm in seen:
+            continue
+
+        seen.add(candidate_norm)
+        hints.append(" ".join(token.capitalize() for token in tokens))
+
+    return hints
+
+def _pick_consensus_geo_value(
+    existing_reels,
+    incoming_values,
+    current_value,
+    incoming_comments,
+    reel_field,
+    fallback_fields=None,
+):
+    # Evidence priority:
+    # 1) Reel-derived fields (caption/transcript-driven AI extraction)
+    # 2) Fallback reel fields (e.g., instagram location tags)
+    # 3) Comment mentions
+    primary_reel_weight = 3
+    fallback_reel_weight = 2
+    incoming_primary_weight = 4
+    current_value_weight = 2
+    comment_weight = 1
+
+    reel_scores = {}
+    comment_scores = {}
+    labels = {}
+    fallback_fields = list(fallback_fields or [])
+
+    for existing_reel in existing_reels:
+        primary_value = getattr(existing_reel, reel_field, None)
+        if primary_value:
+            _add_vote(reel_scores, labels, primary_value, weight=primary_reel_weight)
+        for field_name in fallback_fields:
+            _add_vote(
+                reel_scores,
+                labels,
+                getattr(existing_reel, field_name, None),
+                weight=fallback_reel_weight,
+            )
+
+    for item in incoming_values or []:
+        if isinstance(item, tuple) and len(item) == 2:
+            value, weight = item
+            _add_vote(reel_scores, labels, value, weight=weight)
+        else:
+            _add_vote(reel_scores, labels, item, weight=incoming_primary_weight)
+    _add_vote(reel_scores, labels, current_value, weight=current_value_weight)
+
+    candidates = set(reel_scores.keys())
+    if not candidates:
+        return _clean_text_value(current_value)
+
+    for existing_reel in existing_reels:
+        normalized_comments = [
+            _normalize_geo_label(comment_text)
+            for comment_text in _iter_comment_texts(existing_reel.comments_dump)
+        ]
+        for candidate in candidates:
+            if len(candidate) < 4:
+                continue
+            if any(_contains_geo_mention(comment, candidate) for comment in normalized_comments):
+                comment_scores[candidate] = comment_scores.get(candidate, 0) + comment_weight
+
+    incoming_normalized_comments = [
+        _normalize_geo_label(comment_text)
+        for comment_text in _iter_comment_texts(incoming_comments)
+    ]
+    for candidate in candidates:
+        if len(candidate) < 4:
+            continue
+        if any(_contains_geo_mention(comment, candidate) for comment in incoming_normalized_comments):
+            comment_scores[candidate] = comment_scores.get(candidate, 0) + comment_weight
+
+    total_scores = {
+        candidate: reel_scores.get(candidate, 0) + comment_scores.get(candidate, 0)
+        for candidate in candidates
+    }
+    best_total = max(total_scores.values())
+    top_candidates = [candidate for candidate, score in total_scores.items() if score == best_total]
+
+    current_normalized = _normalize_geo_label(current_value)
+    if current_normalized in top_candidates:
+        selected = current_normalized
+    else:
+        top_candidates.sort(
+            key=lambda candidate: (
+                -reel_scores.get(candidate, 0),
+                -comment_scores.get(candidate, 0),
+                candidate,
+            )
+        )
+        selected = top_candidates[0]
+
+    return labels.get(selected, _clean_text_value(current_value))
+
 def get_or_process_reel(reel_url, prepared_comments=None):
     # 1. CHECK REEL CACHE
     short_code = extract_shortcode(reel_url)
@@ -185,8 +360,11 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
     existing_reel = ScrapedReel.objects.filter(short_code=short_code).first()
     has_prepared_comments = bool(prepared_comments and len(prepared_comments) > 0)
+    has_existing_usable_comments = bool(
+        existing_reel and _has_usable_comments(existing_reel.comments_dump)
+    )
     if existing_reel and existing_reel.is_processed and not (
-        has_prepared_comments and not existing_reel.comments_dump
+        has_prepared_comments and not has_existing_usable_comments
     ):
         return existing_reel
 
@@ -261,7 +439,7 @@ def get_or_process_reel(reel_url, prepared_comments=None):
             max_attempts = 15
             for attempt in range(max_attempts):
                 reel.refresh_from_db()
-                if reel.comments_dump and len(reel.comments_dump) > 0:
+                if _has_usable_comments(reel.comments_dump):
                     print("✅ Comments received! Proceeding to AI analysis.")
                     break
                 time.sleep(2)
@@ -281,8 +459,8 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                 loc_name = data.get("location")
                 ai_alternate_names = data.get("alternate_names", [])
                 category = data.get("category")
-                district = data.get("district")
-                specific_area = data.get("specific_area")
+                district = _clean_text_value(data.get("district"))
+                specific_area = _clean_text_value(data.get("specific_area"))
                 latitude = data.get("latitude")
                 longitude = data.get("longitude")
                 general_info = _as_dict(data.get("general_info"))
@@ -362,6 +540,15 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                     if not loc_created:
                         has_updates = False
 
+                        existing_reels = list(
+                            location_obj.reels.exclude(id=reel.id).only(
+                                "comments_dump",
+                                "extracted_district",
+                                "extracted_specific_area",
+                                "instagram_location_name",
+                            )
+                        )
+
                         merged_aliases = _merge_aliases(
                             location_obj.alternate_names,
                             names_to_store,
@@ -391,12 +578,35 @@ def get_or_process_reel(reel_url, prepared_comments=None):
                             location_obj.category = category
                             has_updates = True
 
-                        if district and not location_obj.district:
-                            location_obj.district = district
+                        consensus_district = _pick_consensus_geo_value(
+                            existing_reels=existing_reels,
+                            incoming_values=[(district, 4)],
+                            current_value=location_obj.district,
+                            incoming_comments=reel.comments_dump,
+                            reel_field="extracted_district",
+                        )
+                        if consensus_district != _clean_text_value(location_obj.district):
+                            location_obj.district = consensus_district
                             has_updates = True
 
-                        if specific_area and not location_obj.specific_area:
-                            location_obj.specific_area = specific_area
+                        specific_area_hints = _extract_area_hints_from_names(
+                            names=names_to_store,
+                            canonical_location_name=location_obj.name,
+                        )
+                        incoming_specific_area_values = [(specific_area, 4)] + [
+                            (hint, 1) for hint in specific_area_hints
+                        ]
+
+                        consensus_specific_area = _pick_consensus_geo_value(
+                            existing_reels=existing_reels,
+                            incoming_values=incoming_specific_area_values,
+                            current_value=location_obj.specific_area,
+                            incoming_comments=reel.comments_dump,
+                            reel_field="extracted_specific_area",
+                            fallback_fields=["instagram_location_name"],
+                        )
+                        if consensus_specific_area != _clean_text_value(location_obj.specific_area):
+                            location_obj.specific_area = consensus_specific_area
                             has_updates = True
 
                         if latitude and not location_obj.latitude:
@@ -427,6 +637,8 @@ def get_or_process_reel(reel_url, prepared_comments=None):
 
                 reel.transcript_text = transcript_text
                 reel.ai_location_name = loc_name
+                reel.extracted_district = district
+                reel.extracted_specific_area = specific_area
                 reel.ai_summary = (
                     summary_text
                     or reel.raw_caption

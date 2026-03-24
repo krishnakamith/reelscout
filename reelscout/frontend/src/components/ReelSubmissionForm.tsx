@@ -236,23 +236,46 @@ export function ReelSubmissionForm() {
 
     try {
       let pastedShortCode: string | null = null;
-      let comments: string[] = [];
+      let comments: Array<string | Record<string, unknown>> = [];
       const commentsInput = formData.commentsText.trim();
+
+      const normalizeCommentEntry = (item: unknown): string | Record<string, unknown> | null => {
+        if (typeof item === "string") {
+          const text = item.trim();
+          return text.length > 0 ? text : null;
+        }
+        if (item && typeof item === "object") {
+          const entry = item as Record<string, unknown>;
+          const text = (
+            typeof entry.text === "string" ? entry.text :
+            typeof entry.comment === "string" ? entry.comment :
+            typeof entry.message === "string" ? entry.message :
+            ""
+          ).trim();
+          if (!text) return null;
+          return {
+            ...entry,
+            text,
+          };
+        }
+        const text = String(item ?? "").trim();
+        return text.length > 0 ? text : null;
+      };
 
       try {
         const parsed = JSON.parse(commentsInput);
         if (Array.isArray(parsed)) {
           comments = parsed
-            .map((item) => String(item).trim())
-            .filter((line) => line.length > 0);
+            .map((item) => normalizeCommentEntry(item))
+            .filter((item): item is string | Record<string, unknown> => item !== null);
         } else if (parsed && typeof parsed === "object") {
           if (typeof parsed.short_code === "string") {
             pastedShortCode = parsed.short_code;
           }
           if (Array.isArray(parsed.comments)) {
             comments = parsed.comments
-              .map((item) => String(item).trim())
-              .filter((line) => line.length > 0);
+              .map((item) => normalizeCommentEntry(item))
+              .filter((item): item is string | Record<string, unknown> => item !== null);
           }
         }
       } catch {

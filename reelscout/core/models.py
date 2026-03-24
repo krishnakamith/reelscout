@@ -71,6 +71,18 @@ class ScrapedReel(models.Model):
 
     # 6. AI OUTPUT
     ai_location_name = models.CharField(max_length=255, null=True, blank=True)
+    extracted_district = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="District inferred for this reel from caption/audio/comments"
+    )
+    extracted_specific_area = models.CharField(
+        max_length=150,
+        null=True,
+        blank=True,
+        help_text="Specific area/locality inferred for this reel from caption/audio/comments"
+    )
     ai_summary = models.TextField(null=True, blank=True)
     selected_frame_timestamps = models.JSONField(default=list, blank=True)
 

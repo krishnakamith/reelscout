@@ -121,9 +121,45 @@ def clean_and_rank_comments(raw_list):
         if item is None:
             continue
 
+        if isinstance(item, dict):
+            text_value = (
+                item.get("text")
+                or item.get("comment")
+                or item.get("message")
+                or ""
+            )
+            item_text = str(text_value).strip()
+            if not item_text:
+                continue
+            if item_text.lower() == "[object object]":
+                continue
+
+            likes_value = item.get("likes", 0)
+            try:
+                parsed_likes = int(str(likes_value).replace(",", "").strip())
+            except (TypeError, ValueError):
+                parsed_likes = 0
+
+            raw_date = item.get("date") or item.get("timestamp") or pending_date
+            parsed_date = str(raw_date).strip() or "Unknown"
+
+            if any(j.lower() in item_text.lower() for j in junk_words):
+                continue
+
+            cleaned_comments.append({
+                "text": item_text,
+                "likes": parsed_likes,
+                "date": parsed_date,
+            })
+
+            pending_date = "Unknown"
+            continue
+
         item = str(item).strip()
 
         if not item:
+            continue
+        if item.lower() == "[object object]":
             continue
 
         if date_pattern.match(item):
