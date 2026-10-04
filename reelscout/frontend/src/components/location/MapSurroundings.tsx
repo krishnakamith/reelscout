@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 
 // React-Leaflet imports
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -317,13 +317,13 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
               zoom={15} 
               scrollWheelZoom={false} 
               className="w-full h-full z-0"
-              style={{ zIndex: 10 }}
+              style={{ zIndex: 10, backgroundColor: "hsl(var(--primary) / 0.2)" }}
             >
               <TileLayer
-                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                attribution="&copy; OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              
+
               {/* Main Destination Marker */}
               <Marker position={position} icon={markerIcons.origin}>
                 <Popup className="font-sans">

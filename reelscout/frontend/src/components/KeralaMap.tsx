@@ -165,7 +165,7 @@ export function KeralaMap() {
       })
       .catch((err) => console.error("Error fetching locations:", err));
 
-    fetch("/kerala-districts.json")
+    fetch(`${import.meta.env.BASE_URL}kerala-districts.json`)
       .then((res) => res.json())
       .then((data) => setGeoData(data))
       .catch((err) => console.error("Error fetching GeoJSON:", err));
@@ -269,11 +269,12 @@ export function KeralaMap() {
           maxBounds={keralaBounds}
           maxBoundsViscosity={1.0}
           className="w-full h-full z-0"
+          style={{ backgroundColor: "hsl(var(--primary) / 0.2)" }}
         >
           <MapBoundsUpdater targetBounds={targetBounds} />
 
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap contributors"
           />
 

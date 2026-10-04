@@ -382,7 +382,12 @@ def get_or_process_reel(reel_url, prepared_comments=None):
     run = client.actor("apify/instagram-reel-scraper").call(run_input=run_input)
     if not run: raise Exception("Scraper failed")
 
-    items = client.dataset(run["defaultDatasetId"]).list_items().items
+    dataset_id = (
+        run.get("defaultDatasetId")
+        if isinstance(run, dict)
+        else run.default_dataset_id
+    )
+    items = client.dataset(dataset_id).list_items().items
     if not items: raise Exception("No data found")
     item = items[0]
 
@@ -399,8 +404,8 @@ def get_or_process_reel(reel_url, prepared_comments=None):
         "author_handle": item.get("ownerUsername"),
         "thumbnail_url": item.get("displayUrl"),
         "posted_at": formatted_date,
-        "view_count": item.get("videoViewCount", 0),
-        "like_count": item.get("likesCount", 0),
+        "view_count": item.get("videoViewCount") or 0,
+        "like_count": item.get("likesCount") or 0,
         "instagram_location_name": item.get("location", {}).get("name") if item.get("location") else None,
     }
     if has_prepared_comments:
