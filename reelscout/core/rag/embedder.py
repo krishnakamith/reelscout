@@ -1,8 +1,13 @@
-from sentence_transformers import SentenceTransformer
+from functools import lru_cache
+
 import numpy as np
 
-# Load embedding model once
-model = SentenceTransformer("all-MiniLM-L6-v2")
+
+@lru_cache(maxsize=1)
+def _get_model():
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def embed_text(text: str):
@@ -12,6 +17,6 @@ def embed_text(text: str):
     if not text:
         text = ""
 
-    embedding = model.encode(text, normalize_embeddings=True)
+    embedding = _get_model().encode(text, normalize_embeddings=True)
 
     return np.array(embedding)
