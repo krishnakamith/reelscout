@@ -8,6 +8,7 @@ import {
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { apiUrl } from "@/lib/api";
 
 // Helper to pick icons dynamically based on the place "type"
 const getIconForType = (type: string) => {
@@ -216,7 +217,7 @@ const MapSurroundings = ({ locationSlug, latitude, longitude, initialPlaces = []
         lng: place.lng ? parseFloat(place.lng.toString()) : undefined
       }));
 
-      const response = await fetch(`/api/locations/${encodeURIComponent(locationSlug)}/nearby-places/`, {
+      const response = await fetch(apiUrl(`/api/locations/${encodeURIComponent(locationSlug)}/nearby-places/`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

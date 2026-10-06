@@ -6,6 +6,7 @@ import { divIcon, geoJSON, type DivIcon, type LatLngBoundsExpression } from "lea
 import type { FeatureCollection, Geometry } from "geojson";
 import { MapPin } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import { apiUrl } from "@/lib/api";
 
 interface LocationData {
   id: number;
@@ -147,7 +148,7 @@ export function KeralaMap() {
   }, [filteredLocations]);
 
   useEffect(() => {
-    fetch("/api/locations/")
+    fetch(apiUrl("/api/locations/"))
       .then((res) => res.json())
       .then((data: LocationData[]) => {
         if (!Array.isArray(data)) {

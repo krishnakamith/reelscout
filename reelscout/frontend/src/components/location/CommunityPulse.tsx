@@ -3,6 +3,7 @@ import { Clock, MessageCircle, Send, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { apiUrl } from "@/lib/api";
 
 interface CommunityPulseEntry {
   id: string;
@@ -64,7 +65,7 @@ const CommunityPulse = ({ locationSlug, initialEntries = [] }: CommunityPulsePro
     setError(null);
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/locations/${encodeURIComponent(locationSlug)}/notes/`, {
+      const response = await fetch(apiUrl(`/api/locations/${encodeURIComponent(locationSlug)}/notes/`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

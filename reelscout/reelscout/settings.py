@@ -152,3 +152,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # <-- Add Vite localhost
     "http://127.0.0.1:5173",  # <-- Add Vite 127 IP
 ]
+CORS_ALLOWED_ORIGINS += [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]

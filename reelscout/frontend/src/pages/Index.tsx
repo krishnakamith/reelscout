@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { KeralaMap } from "@/components/KeralaMap";
 import { ChatbotSidebar } from "@/components/ChatbotSidebar";
 import heroImage from "@/assets/kerala-hero.jpg";
+import { apiUrl } from "@/lib/api";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ const Index = () => {
   useEffect(() => {
     let isMounted = true;
 
-    fetch("/api/locations/")
+    fetch(apiUrl("/api/locations/"))
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to fetch stats: ${res.status}`);
         return res.json();
@@ -319,5 +320,4 @@ const Index = () => {
 };
 
 export default Index;
-
 

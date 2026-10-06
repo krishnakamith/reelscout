@@ -11,6 +11,7 @@ import ChatbotCTA from "@/components/location/ChatbotCTA";
 import { ChatbotSidebar } from "@/components/ChatbotSidebar";
 import { ArrowLeft, CircleDollarSign, Clock, Eye, Footprints, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiUrl } from "@/lib/api";
 
 interface NearbyPlace {
   name: string;
@@ -153,7 +154,7 @@ const LocationDetail = () => {
     setCommunityEntries([]);
     setGalleryFrames([]);
 
-    fetch(`/api/locations/${encodeURIComponent(slug)}/`)
+    fetch(apiUrl(`/api/locations/${encodeURIComponent(slug)}/`))
       .then((response) => {
         if (!response.ok) throw new Error(`Failed to fetch location: ${response.status}`);
         return response.json();

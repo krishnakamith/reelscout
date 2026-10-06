@@ -3,6 +3,7 @@ import { MessageCircle, X, Maximize2, Minimize2, Send, Bot, User, MapPin, MapPin
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { apiUrl } from "@/lib/api";
 
 interface ReelResult {
   location?: string;
@@ -154,7 +155,7 @@ const chatHistory = recentMessages.map(m => `${m.sender === "user" ? "User" : "R
 
     // 5. Send the payload to your Django API
     try {
-      const response = await fetch('/api/chat/', {
+      const response = await fetch(apiUrl('/api/chat/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

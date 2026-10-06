@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { apiUrl } from "@/lib/api";
 
 // Fix: Removed inner backticks and ${} template literals so it doesn't break React compilation
 const COMMENT_SCRAPER_SCRIPT = String.raw`(async function runReelScoutExtractorV9() {
@@ -285,7 +286,7 @@ export function ReelSubmissionForm() {
           .filter((line) => line.length > 0);
       }
 
-      const response = await fetch('/api/search/', {
+      const response = await fetch(apiUrl('/api/search/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -302,7 +303,7 @@ export function ReelSubmissionForm() {
         const shortCode = data?.data?.short_code || pastedShortCode;
 
         if (shortCode && comments.length > 0 && (data?.data?.comments_count ?? 0) === 0) {
-          const commentsResponse = await fetch('/api/save-comments/', {
+          const commentsResponse = await fetch(apiUrl('/api/save-comments/'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
